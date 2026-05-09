@@ -1,5 +1,6 @@
 const ROOT_ID = "link-manager-root";
 const STYLE_ID = "link-manager-style";
+const BAR_MODE_STORAGE_KEY = "link-manager-bar-mode";
 
 let extensionState = {
   entries: [],
@@ -10,7 +11,7 @@ let extensionState = {
 };
 
 let initialized = false;
-let panelCollapsed = true;
+let barMode = "closed";
 let searchQuery = "";
 let currentPageState = createEmptyCurrentPageState();
 let pendingAction = null;
@@ -30,6 +31,7 @@ async function bootstrap() {
   }
 
   initialized = true;
+  barMode = loadBarMode();
   installStyles();
   document.addEventListener("click", handleDocumentClick, true);
 
@@ -197,8 +199,48 @@ function setCurrentPageBookmarked(isBookmarked) {
   };
 }
 
+function getCurrentEntryNavigation() {
+  if (!currentPageState.savedEntry) {
+    return { previousEntry: null, nextEntry: null };
+  }
+
+  const currentIndex = extensionState.entries.findIndex(
+    (entry) => entry.id === currentPageState.savedEntry.id,
+  );
+
+  if (currentIndex === -1) {
+    return { previousEntry: null, nextEntry: null };
+  }
+
+  return {
+    previousEntry: extensionState.entries[currentIndex + 1] || null,
+    nextEntry: extensionState.entries[currentIndex - 1] || null,
+  };
+}
+
 function setPendingState(action, targetId = null) {
   pendingAction = { action, targetId };
+}
+
+function loadBarMode() {
+  try {
+    const storedMode = window.localStorage.getItem(BAR_MODE_STORAGE_KEY);
+    return ["open", "closed", "icon"].includes(storedMode)
+      ? storedMode
+      : "closed";
+  } catch {
+    return "closed";
+  }
+}
+
+function setBarMode(nextMode) {
+  barMode = nextMode;
+
+  try {
+    window.localStorage.setItem(BAR_MODE_STORAGE_KEY, nextMode);
+  } catch {
+    // Ignore persistence errors.
+  }
 }
 
 function clearPendingState() {
@@ -208,8 +250,8 @@ function clearPendingState() {
 function isPending(action, targetId = null) {
   return Boolean(
     pendingAction &&
-      pendingAction.action === action &&
-      pendingAction.targetId === targetId,
+    pendingAction.action === action &&
+    pendingAction.targetId === targetId,
   );
 }
 
@@ -241,6 +283,7 @@ function renderBar() {
 
   const filteredEntries = filterEntries(searchQuery, extensionState.entries);
   const busy = isAnyPending();
+  const { previousEntry, nextEntry } = getCurrentEntryNavigation();
   const currentPageTitle =
     document.title?.trim() || window.location.hostname || window.location.href;
   const currentPageStatus = currentPageState.isBookmarked
@@ -248,6 +291,15 @@ function renderBar() {
     : currentPageState.savedEntry
       ? "Nel database"
       : "Non salvata";
+  const currentToggleAction = currentPageState.savedEntry
+    ? "remove-current"
+    : "save-current";
+  const currentToggleLabel = currentPageState.savedEntry
+    ? "Rimuovi"
+    : "Aggiungi";
+  const currentToggleIcon = currentPageState.savedEntry ? "trash" : "plus";
+  const isIconMode = barMode === "icon";
+  const isPanelOpen = barMode === "open";
   const resultsMarkup = !searchQuery.trim()
     ? '<li class="lm-empty">Scrivi nella ricerca per trovare un link salvato</li>'
     : filteredEntries.length
@@ -268,13 +320,32 @@ function renderBar() {
           .join("")
       : '<li class="lm-empty">Nessun risultato</li>';
 
-  root.innerHTML = `
+  root.innerHTML = isIconMode
+    ? `
+    <div class="lm-shell lm-shell-icon ${busy ? "is-busy" : ""}">
+      <button class="lm-icon-launcher" type="button" data-action="expand-from-icon" title="Apri Link Manager" aria-label="Apri Link Manager">
+        ${iconMarkup("bolt")}
+        <span class="lm-toggle-count">${extensionState.entries.length}</span>
+      </button>
+    </div>
+  `
+    : `
     <div class="lm-shell ${extensionState.entries.length ? "has-entries" : ""} ${busy ? "is-busy" : ""}">
       <button class="lm-toggle" type="button" data-action="toggle">
         <span class="lm-toggle-copy">Link Manager</span>
         <span class="lm-toggle-count">${extensionState.entries.length}</span>
       </button>
-      <section class="lm-panel" data-collapsed="${String(panelCollapsed)}">
+      <button class="lm-minimize" type="button" data-action="minimize-to-icon" title="Riduci a icona" aria-label="Riduci a icona">
+        ${iconMarkup("dot")}
+      </button>
+      <div class="lm-quick-actions">
+        <button class="lm-icon-button" type="button" data-action="prev-current" data-id="${escapeHtml(previousEntry?.id || "")}" title="Link precedente" aria-label="Link precedente" ${getDisabledAttrs(busy || !previousEntry)}>${isPending("prev-current") ? spinnerMarkup() : iconMarkup("chevron-left")}</button>
+        <button class="lm-icon-button" type="button" data-action="next-current" data-id="${escapeHtml(nextEntry?.id || "")}" title="Link successivo" aria-label="Link successivo" ${getDisabledAttrs(busy || !nextEntry)}>${isPending("next-current") ? spinnerMarkup() : iconMarkup("chevron-right")}</button>
+        <button class="lm-icon-button" type="button" data-action="${currentToggleAction}" title="${currentToggleLabel} link corrente" aria-label="${currentToggleLabel} link corrente" ${getDisabledAttrs(busy || !currentPageState.canSave || (!currentPageState.savedEntry && currentPageState.isBookmarked))}>${isPending(currentToggleAction) ? spinnerMarkup() : iconMarkup(currentToggleIcon)}</button>
+        <button class="lm-icon-button" type="button" data-action="bookmark-current" title="Aggiungi pagina corrente ai preferiti" aria-label="Aggiungi pagina corrente ai preferiti" ${getDisabledAttrs(busy || !currentPageState.canSave || currentPageState.isBookmarked)}>${isPending("bookmark-current") ? spinnerMarkup() : iconMarkup("star")}</button>
+        <button class="lm-icon-button" type="button" data-action="random" title="Apri link casuale" aria-label="Apri link casuale" ${getDisabledAttrs(busy)}>${isPending("random") ? spinnerMarkup() : iconMarkup("shuffle")}</button>
+      </div>
+      <section class="lm-panel" data-collapsed="${String(!isPanelOpen)}">
         <header class="lm-toolbar">
           <strong>${iconMarkup("bolt")} Salvati con Shift+Click</strong>
           <div class="lm-toolbar-actions">
@@ -290,17 +361,13 @@ function renderBar() {
             <span class="lm-current-status">${escapeHtml(currentPageStatus)}</span>
           </div>
           <div class="lm-current-actions">
-            <button class="lm-action-button" type="button" data-action="save-current" ${getDisabledAttrs(busy || !currentPageState.canSave || Boolean(currentPageState.savedEntry) || currentPageState.isBookmarked)}>
-              ${isPending("save-current") ? spinnerMarkup() : iconMarkup("plus")}
-              <span>Aggiungi</span>
+            <button class="lm-action-button" type="button" data-action="${currentToggleAction}" ${getDisabledAttrs(busy || !currentPageState.canSave || (!currentPageState.savedEntry && currentPageState.isBookmarked))}>
+              ${isPending(currentToggleAction) ? spinnerMarkup() : iconMarkup(currentToggleIcon)}
+              <span>${currentToggleLabel}</span>
             </button>
             <button class="lm-action-button" type="button" data-action="bookmark-current" ${getDisabledAttrs(busy || !currentPageState.canSave || currentPageState.isBookmarked)}>
               ${isPending("bookmark-current") ? spinnerMarkup() : iconMarkup("star")}
               <span>Preferiti</span>
-            </button>
-            <button class="lm-action-button" type="button" data-action="remove-current" ${getDisabledAttrs(busy || !currentPageState.savedEntry)}>
-              ${isPending("remove-current") ? spinnerMarkup() : iconMarkup("trash")}
-              <span>Rimuovi</span>
             </button>
           </div>
         </section>
@@ -337,11 +404,22 @@ function attachUiHandlers(root) {
   const panel = root.querySelector(".lm-panel");
   const toggle = root.querySelector(".lm-toggle");
   const searchInput = root.querySelector(".lm-search-input");
+  const minimize = root.querySelector(".lm-minimize");
+  const iconLauncher = root.querySelector(".lm-icon-launcher");
 
   toggle?.addEventListener("click", () => {
-    panelCollapsed = panel?.getAttribute("data-collapsed") !== "false";
-    panelCollapsed = !panelCollapsed;
-    panel?.setAttribute("data-collapsed", String(panelCollapsed));
+    setBarMode(barMode === "open" ? "closed" : "open");
+    panel?.setAttribute("data-collapsed", String(barMode !== "open"));
+  });
+
+  minimize?.addEventListener("click", () => {
+    setBarMode("icon");
+    renderBar();
+  });
+
+  iconLauncher?.addEventListener("click", () => {
+    setBarMode("closed");
+    renderBar();
   });
 
   searchInput?.addEventListener("input", (event) => {
@@ -350,7 +428,11 @@ function attachUiHandlers(root) {
   });
 
   root.querySelectorAll("[data-action]").forEach((button) => {
-    if (button.getAttribute("data-action") === "toggle") {
+    if (
+      ["toggle", "minimize-to-icon", "expand-from-icon"].includes(
+        button.getAttribute("data-action"),
+      )
+    ) {
       return;
     }
 
@@ -369,6 +451,28 @@ function attachUiHandlers(root) {
 
       try {
         switch (action) {
+          case "prev-current":
+            if (id) {
+              const targetEntry = extensionState.entries.find(
+                (entry) => entry.id === id,
+              );
+              if (targetEntry) {
+                window.location.href = targetEntry.url;
+                return;
+              }
+            }
+            break;
+          case "next-current":
+            if (id) {
+              const targetEntry = extensionState.entries.find(
+                (entry) => entry.id === id,
+              );
+              if (targetEntry) {
+                window.location.href = targetEntry.url;
+                return;
+              }
+            }
+            break;
           case "save-current": {
             const result = await sendMessage({
               type: "save-link",
@@ -502,6 +606,18 @@ function installStyles() {
       background: linear-gradient(180deg, #18243f 0%, #0b1324 100%);
       border: 1px solid rgba(255, 255, 255, 0.12);
       backdrop-filter: blur(10px);
+      position: relative;
+    }
+
+    #${ROOT_ID} .lm-shell.lm-shell-icon {
+      width: auto;
+      max-width: none;
+      border-radius: 999px;
+      overflow: visible;
+      background: transparent;
+      border: 0;
+      backdrop-filter: none;
+      box-shadow: none;
     }
 
     #${ROOT_ID} .lm-shell.is-busy {
@@ -522,10 +638,38 @@ function installStyles() {
       justify-content: space-between;
       gap: 12px;
       width: 100%;
-      padding: 12px 16px;
+      padding: 12px 50px 12px 16px;
       text-align: left;
       background: linear-gradient(90deg, #e67e22 0%, #f0b35a 100%);
       color: #24170b;
+      font-weight: 700;
+    }
+
+    #${ROOT_ID} .lm-minimize {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      border-radius: 999px;
+      background: rgba(36, 23, 11, 0.16);
+      color: #24170b;
+      z-index: 1;
+    }
+
+    #${ROOT_ID} .lm-icon-launcher {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-width: 56px;
+      height: 56px;
+      padding: 0 14px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #e67e22 0%, #f0b35a 100%);
+      color: #24170b;
+      box-shadow: 0 24px 60px rgba(14, 23, 44, 0.35);
       font-weight: 700;
     }
 
@@ -545,6 +689,23 @@ function installStyles() {
 
     #${ROOT_ID} .lm-panel[data-collapsed="true"] {
       display: none;
+    }
+
+    #${ROOT_ID} .lm-quick-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      padding: 10px 12px;
+      background: rgba(5, 10, 20, 0.28);
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    #${ROOT_ID} .lm-quick-actions .lm-icon-button {
+      padding: 8px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.12);
+      color: #f4efe6;
     }
 
     #${ROOT_ID} .lm-toolbar {
@@ -809,6 +970,11 @@ function getDisabledAttrs(disabled) {
 function iconMarkup(name) {
   const icons = {
     bolt: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 5 14h5l-1 8 8-12h-5l1-8Z"/></svg>',
+    dot: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/></svg>',
+    "chevron-left":
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>',
+    "chevron-right":
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8.59 16.59 1.41 1.41 6-6-6-6-1.41 1.41L13.17 12z"/></svg>',
     plus: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5h2v14h-2zM5 11h14v2H5z"/></svg>',
     refresh:
       '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.65 6.35A7.95 7.95 0 0 0 12 4V1L7 6l5 5V7a5 5 0 1 1-4.9 6h-2.02A7 7 0 1 0 17.65 6.35Z"/></svg>',

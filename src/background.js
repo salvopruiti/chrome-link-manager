@@ -3,6 +3,8 @@ const STORAGE_KEYS = {
   settings: "settings",
 };
 
+const CONTEXT_MENU_ID = "save-link-from-context-menu";
+
 const DEFAULT_SETTINGS = {
   captureWithShift: true,
   openLinksInNewTab: true,
@@ -19,6 +21,27 @@ chrome.runtime.onInstalled.addListener(async () => {
       ...settings,
     },
   });
+
+  await ensureContextMenu();
+});
+
+chrome.runtime.onStartup.addListener(() => {
+  void ensureContextMenu();
+});
+
+chrome.contextMenus.onClicked.addListener((info, tab) => {
+  if (info.menuItemId !== CONTEXT_MENU_ID || !info.linkUrl) {
+    return;
+  }
+
+  void saveLinks([
+    {
+      url: info.linkUrl,
+      title: info.selectionText?.trim() || info.linkText || info.linkUrl,
+      text: info.linkText || info.selectionText || "",
+      pageUrl: info.pageUrl || tab?.url || null,
+    },
+  ]);
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -55,7 +78,12 @@ async function handleMessage(message, sender) {
     case "remove-link":
       return removeLink(message.payload?.id);
     case "open-link":
-      return openLink(message.payload?.id, message.payload?.active, sender);
+      return openLink(
+        message.payload?.id,
+        message.payload?.active,
+        sender,
+        message.payload?.openInCurrentTab,
+      );
     case "open-random-link":
       return openRandomLink(sender);
     case "promote-link":
@@ -67,6 +95,15 @@ async function handleMessage(message, sender) {
     default:
       throw new Error("Unsupported message type");
   }
+}
+
+async function ensureContextMenu() {
+  await chrome.contextMenus.removeAll();
+  await chrome.contextMenus.create({
+    id: CONTEXT_MENU_ID,
+    title: "Salva link",
+    contexts: ["link"],
+  });
 }
 
 async function getState() {
@@ -336,7 +373,7 @@ async function removeLink(id) {
   return { removed: entries.length !== nextEntries.length };
 }
 
-async function openLink(id, active = true, sender) {
+async function openLink(id, active = true, sender, openInCurrentTab = false) {
   const entries = await getEntries();
   const settings = await getSettings();
   const entry = entries.find((item) => item.id === id);
@@ -345,7 +382,12 @@ async function openLink(id, active = true, sender) {
     throw new Error("Link not found");
   }
 
-  await openUrl(entry.url, Boolean(active), settings.openLinksInNewTab, sender);
+  await openUrl(
+    entry.url,
+    Boolean(active),
+    openInCurrentTab ? false : settings.openLinksInNewTab,
+    sender,
+  );
   return entry;
 }
 
