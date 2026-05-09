@@ -22,6 +22,11 @@ chrome.runtime.onMessage.addListener((message) => {
   if (message?.type === "state-updated") {
     extensionState = message.payload;
     void refreshCurrentPageState().then(renderBar);
+    return;
+  }
+
+  if (message?.type === "show-toast") {
+    flashMessage(message.payload?.text || "Operazione completata", Boolean(message.payload?.isError));
   }
 });
 

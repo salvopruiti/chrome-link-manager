@@ -34,14 +34,7 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
     return;
   }
 
-  void saveLinks([
-    {
-      url: info.linkUrl,
-      title: info.selectionText?.trim() || info.linkText || info.linkUrl,
-      text: info.linkText || info.selectionText || "",
-      pageUrl: info.pageUrl || tab?.url || null,
-    },
-  ]);
+  void handleContextMenuSave(info, tab);
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -104,6 +97,52 @@ async function ensureContextMenu() {
     title: "Salva link",
     contexts: ["link"],
   });
+}
+
+async function handleContextMenuSave(info, tab) {
+  try {
+    const result = await saveLinks([
+      {
+        url: info.linkUrl,
+        title: info.selectionText?.trim() || info.linkText || info.linkUrl,
+        text: info.linkText || info.selectionText || "",
+        pageUrl: info.pageUrl || tab?.url || null,
+      },
+    ]);
+
+    await sendToastToTab(tab?.id, formatSaveStatusMessage(result.status));
+  } catch (error) {
+    await sendToastToTab(
+      tab?.id,
+      error instanceof Error ? error.message : String(error),
+      true,
+    );
+  }
+}
+
+function formatSaveStatusMessage(status) {
+  const feedback = {
+    duplicate: "Link gia presente",
+    bookmarked: "Link gia nei preferiti",
+    saved: "Link salvato",
+  };
+
+  return feedback[status] || "Operazione completata";
+}
+
+async function sendToastToTab(tabId, text, isError = false) {
+  if (typeof tabId !== "number") {
+    return;
+  }
+
+  try {
+    await chrome.tabs.sendMessage(tabId, {
+      type: "show-toast",
+      payload: { text, isError },
+    });
+  } catch {
+    // Ignore tabs where the content script is not available.
+  }
 }
 
 async function getState() {
