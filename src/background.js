@@ -7,6 +7,7 @@ const CONTEXT_MENU_ID = "save-link-from-context-menu";
 
 const DEFAULT_SETTINGS = {
   captureWithShift: true,
+  captureAllClicks: false,
   openLinksInNewTab: true,
   bookmarkFolderId: null,
   bookmarkFolderTitle: "Link Manager",
@@ -185,6 +186,10 @@ function sanitizeSettings(nextSettings = {}) {
 
   if (Object.hasOwn(nextSettings, "captureWithShift")) {
     sanitized.captureWithShift = Boolean(nextSettings.captureWithShift);
+  }
+
+  if (Object.hasOwn(nextSettings, "captureAllClicks")) {
+    sanitized.captureAllClicks = Boolean(nextSettings.captureAllClicks);
   }
 
   if (Object.hasOwn(nextSettings, "openLinksInNewTab")) {

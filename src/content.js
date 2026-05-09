@@ -6,6 +6,7 @@ let extensionState = {
   entries: [],
   settings: {
     captureWithShift: true,
+    captureAllClicks: false,
     bookmarkFolderTitle: "Link Manager",
   },
 };
@@ -78,9 +79,8 @@ function waitForBody(callback) {
 
 async function handleDocumentClick(event) {
   if (
-    !extensionState.settings.captureWithShift ||
-    !event.shiftKey ||
-    event.defaultPrevented
+    event.defaultPrevented ||
+    !shouldCaptureClick(event)
   ) {
     return;
   }
@@ -120,6 +120,22 @@ async function handleDocumentClick(event) {
   } catch (error) {
     flashMessage(error.message || "Errore salvataggio", true);
   }
+}
+
+function shouldCaptureClick(event) {
+  if (extensionState.settings.captureAllClicks) {
+    return true;
+  }
+
+  if (
+    !extensionState.settings.captureWithShift ||
+    !event.shiftKey ||
+    event.defaultPrevented
+  ) {
+    return;
+  }
+
+  return true;
 }
 
 function isSavableUrl(url) {
@@ -273,8 +289,9 @@ function renderBar() {
   if (!root) {
     root = document.createElement("div");
     root.id = ROOT_ID;
-    document.body.appendChild(root);
   }
+
+  placeRoot(root);
 
   const previousSearchInput = root.querySelector(".lm-search-input");
   const shouldRestoreSearchFocus =
@@ -303,6 +320,9 @@ function renderBar() {
     ? "Rimuovi"
     : "Aggiungi";
   const currentToggleIcon = currentPageState.savedEntry ? "trash" : "plus";
+  const captureToggleLabel = extensionState.settings.captureAllClicks
+    ? "Click automatico attivo"
+    : "Salva tutti i click";
   const isIconMode = barMode === "icon";
   const isPanelOpen = barMode === "open";
   const resultsMarkup = !searchQuery.trim()
@@ -336,13 +356,20 @@ function renderBar() {
   `
     : `
     <div class="lm-shell ${extensionState.entries.length ? "has-entries" : ""} ${busy ? "is-busy" : ""}">
+      <div class="lm-topline">
       <button class="lm-toggle" type="button" data-action="toggle">
-        <span class="lm-toggle-copy">Link Manager</span>
+        <span class="lm-toggle-copy">${iconMarkup("bolt")} Link Manager</span>
         <span class="lm-toggle-count">${extensionState.entries.length}</span>
       </button>
-      <button class="lm-minimize" type="button" data-action="minimize-to-icon" title="Riduci a icona" aria-label="Riduci a icona">
-        ${iconMarkup("dot")}
-      </button>
+      <div class="lm-top-actions">
+        <button class="lm-minimize ${extensionState.settings.captureAllClicks ? "is-active" : ""}" type="button" data-action="toggle-capture-all" title="${captureToggleLabel}" aria-label="${captureToggleLabel}">
+          ${iconMarkup("capture")}
+        </button>
+        <button class="lm-minimize" type="button" data-action="minimize-to-icon" title="Riduci a icona" aria-label="Riduci a icona">
+          ${iconMarkup("minimize")}
+        </button>
+      </div>
+      </div>
       <div class="lm-quick-actions">
         <button class="lm-icon-button" type="button" data-action="prev-current" data-id="${escapeHtml(previousEntry?.id || "")}" title="Link precedente" aria-label="Link precedente" ${getDisabledAttrs(busy || !previousEntry)}>${isPending("prev-current") ? spinnerMarkup() : iconMarkup("chevron-left")}</button>
         <button class="lm-icon-button" type="button" data-action="next-current" data-id="${escapeHtml(nextEntry?.id || "")}" title="Link successivo" aria-label="Link successivo" ${getDisabledAttrs(busy || !nextEntry)}>${isPending("next-current") ? spinnerMarkup() : iconMarkup("chevron-right")}</button>
@@ -352,8 +379,9 @@ function renderBar() {
       </div>
       <section class="lm-panel" data-collapsed="${String(!isPanelOpen)}">
         <header class="lm-toolbar">
-          <strong>${iconMarkup("bolt")} Salvati con Shift+Click</strong>
+          <strong>${iconMarkup("bolt")} ${extensionState.settings.captureAllClicks ? "Salvataggio click attivo" : "Salvati con Shift+Click"}</strong>
           <div class="lm-toolbar-actions">
+            <button class="lm-icon-button ${extensionState.settings.captureAllClicks ? "is-active" : ""}" type="button" data-action="toggle-capture-all" title="${captureToggleLabel}" aria-label="${captureToggleLabel}" ${getDisabledAttrs(busy)}>${isPending("toggle-capture-all") ? spinnerMarkup() : iconMarkup("capture")}</button>
             <button class="lm-icon-button" type="button" data-action="save-open-tabs" title="Salva tutte le schede" aria-label="Salva tutte le schede" ${getDisabledAttrs(busy)}>${isPending("save-open-tabs") ? spinnerMarkup() : iconMarkup("tabs")}</button>
             <button class="lm-icon-button" type="button" data-action="random" title="Apri link casuale" aria-label="Apri link casuale" ${getDisabledAttrs(busy)}>${isPending("random") ? spinnerMarkup() : iconMarkup("shuffle")}</button>
             <button class="lm-icon-button" type="button" data-action="refresh" title="Aggiorna" aria-label="Aggiorna" ${getDisabledAttrs(busy)}>${isPending("refresh") ? spinnerMarkup() : iconMarkup("refresh")}</button>
@@ -409,7 +437,7 @@ function attachUiHandlers(root) {
   const panel = root.querySelector(".lm-panel");
   const toggle = root.querySelector(".lm-toggle");
   const searchInput = root.querySelector(".lm-search-input");
-  const minimize = root.querySelector(".lm-minimize");
+  const minimize = root.querySelector('[data-action="minimize-to-icon"]');
   const iconLauncher = root.querySelector(".lm-icon-launcher");
 
   toggle?.addEventListener("click", () => {
@@ -553,6 +581,19 @@ function attachUiHandlers(root) {
             flashMessage(formatBatchSaveMessage(result));
             break;
           }
+          case "toggle-capture-all": {
+            const nextValue = !extensionState.settings.captureAllClicks;
+            extensionState.settings = await sendMessage({
+              type: "update-settings",
+              payload: { captureAllClicks: nextValue },
+            });
+            flashMessage(
+              nextValue
+                ? "Salvataggio automatico link attivato"
+                : "Salvataggio automatico link disattivato",
+            );
+            break;
+          }
           case "random":
             await sendMessage({ type: "open-random-link" });
             break;
@@ -571,6 +612,12 @@ function attachUiHandlers(root) {
       }
     });
   });
+}
+
+function placeRoot(root) {
+  if (root.parentElement !== document.body || document.body.lastChild !== root) {
+    document.body.appendChild(root);
+  }
 }
 
 function installStyles() {
@@ -626,7 +673,7 @@ function installStyles() {
     }
 
     #${ROOT_ID} .lm-shell.is-busy {
-      box-shadow: 0 24px 60px rgba(14, 23, 44, 0.45), 0 0 0 1px rgba(240, 179, 90, 0.24);
+      box-shadow: 0 24px 60px rgba(14, 23, 44, 0.45);
     }
 
     #${ROOT_ID} button {
@@ -637,30 +684,71 @@ function installStyles() {
       line-height: 1.2;
     }
 
+    #${ROOT_ID} .lm-topline {
+      display: flex;
+      align-items: stretch;
+      position: relative;
+      background: linear-gradient(90deg, #d9771f 0%, #f2bb69 100%);
+    }
+
     #${ROOT_ID} .lm-toggle {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 12px;
-      width: 100%;
-      padding: 12px 50px 12px 16px;
+      flex: 1;
+      min-width: 0;
+      padding: 12px 16px;
       text-align: left;
-      background: linear-gradient(90deg, #e67e22 0%, #f0b35a 100%);
+      background: transparent;
       color: #24170b;
       font-weight: 700;
     }
 
+    #${ROOT_ID} .lm-top-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px 8px 12px;
+      background: linear-gradient(90deg, rgba(36, 23, 11, 0.04) 0%, rgba(36, 23, 11, 0.1) 100%);
+      border-left: 1px solid rgba(36, 23, 11, 0.12);
+    }
+
     #${ROOT_ID} .lm-minimize {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      width: 28px;
-      height: 28px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 30px;
+      height: 30px;
       padding: 0;
       border-radius: 999px;
-      background: rgba(36, 23, 11, 0.16);
-      color: #24170b;
-      z-index: 1;
+      background: rgba(255, 248, 236, 0.78);
+      color: #1d140b;
+      flex: 0 0 auto;
+      box-shadow: inset 0 0 0 1px rgba(36, 23, 11, 0.12);
+    }
+
+    #${ROOT_ID} .lm-minimize.is-active,
+    #${ROOT_ID} .lm-toolbar-actions .lm-icon-button.is-active {
+      background: rgba(255, 245, 227, 0.96);
+      box-shadow: inset 0 0 0 1px rgba(36, 23, 11, 0.18);
+    }
+
+    #${ROOT_ID} .lm-top-actions .lm-icon,
+    #${ROOT_ID} .lm-top-actions .lm-icon svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    #${ROOT_ID} .lm-top-actions .lm-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 0;
+    }
+
+    #${ROOT_ID} .lm-top-actions button:hover {
+      background: rgba(255, 250, 241, 0.94);
     }
 
     #${ROOT_ID} .lm-icon-launcher {
@@ -682,6 +770,8 @@ function installStyles() {
       display: inline-flex;
       align-items: center;
       gap: 8px;
+      min-width: 0;
+      white-space: nowrap;
     }
 
     #${ROOT_ID} .lm-toggle-count {
@@ -711,6 +801,7 @@ function installStyles() {
       border-radius: 999px;
       background: rgba(255, 255, 255, 0.12);
       color: #f4efe6;
+      flex: 0 0 auto;
     }
 
     #${ROOT_ID} .lm-toolbar {
@@ -975,7 +1066,10 @@ function getDisabledAttrs(disabled) {
 function iconMarkup(name) {
   const icons = {
     bolt: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 5 14h5l-1 8 8-12h-5l1-8Z"/></svg>',
-    dot: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/></svg>',
+    capture:
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.5 7.5h2.1l1.2-1.7c.22-.31.58-.5.96-.5h2.6c.38 0 .74.19.96.5l1.2 1.7h2.1A2.4 2.4 0 0 1 21 9.9v6.6a2.4 2.4 0 0 1-2.4 2.4H5.4A2.4 2.4 0 0 1 3 16.5V9.9a2.4 2.4 0 0 1 2.4-2.4Zm5.1 2.3a4.2 4.2 0 1 0 0 8.4 4.2 4.2 0 0 0 0-8.4Zm0 1.8a2.4 2.4 0 1 1 0 4.8 2.4 2.4 0 0 1 0-4.8Z"/></svg>',
+    minimize:
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8.25h12a.75.75 0 0 1 0 1.5H6a.75.75 0 0 1 0-1.5Zm3 5.5h9a.75.75 0 0 1 0 1.5H9a.75.75 0 0 1 0-1.5Z"/></svg>',
     "chevron-left":
       '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>',
     "chevron-right":
