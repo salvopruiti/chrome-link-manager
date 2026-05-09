@@ -80,7 +80,7 @@ async function handleMessage(message, sender) {
         message.payload?.openInNewTab,
       );
     case "open-random-link":
-      return openRandomLink(sender);
+      return openRandomLink(sender, message.payload);
     case "promote-link":
       return promoteLink(message.payload?.id);
     case "update-settings":
@@ -440,16 +440,11 @@ async function openLink(
         ? false
         : settings.openLinksInNewTab;
 
-  await openUrl(
-    entry.url,
-    Boolean(active),
-    shouldOpenInNewTab,
-    sender,
-  );
+  await openUrl(entry.url, Boolean(active), shouldOpenInNewTab, sender);
   return entry;
 }
 
-async function openRandomLink(sender) {
+async function openRandomLink(sender, context = {}) {
   const entries = await getEntries();
   const settings = await getSettings();
 
@@ -458,17 +453,34 @@ async function openRandomLink(sender) {
   }
 
   const entry = entries[Math.floor(Math.random() * entries.length)];
-  await openUrl(entry.url, true, settings.openLinksInNewTab, sender);
+  await openUrl(entry.url, true, settings.openLinksInNewTab, sender, context);
   return entry;
 }
 
-async function openUrl(url, active, openInNewTab, sender) {
-  if (!openInNewTab && typeof sender?.tab?.id === "number") {
-    await chrome.tabs.update(sender.tab.id, { url, active: Boolean(active) });
+async function openUrl(url, active, openInNewTab, sender, context = {}) {
+  const targetTabId =
+    typeof sender?.tab?.id === "number"
+      ? sender.tab.id
+      : typeof context?.tabId === "number"
+        ? context.tabId
+        : null;
+  const targetWindowId =
+    typeof sender?.tab?.windowId === "number"
+      ? sender.tab.windowId
+      : typeof context?.windowId === "number"
+        ? context.windowId
+        : undefined;
+
+  if (!openInNewTab && targetTabId !== null) {
+    await chrome.tabs.update(targetTabId, { url, active: Boolean(active) });
     return;
   }
 
-  await chrome.tabs.create({ url, active: Boolean(active) });
+  await chrome.tabs.create({
+    url,
+    active: Boolean(active),
+    ...(typeof targetWindowId === "number" ? { windowId: targetWindowId } : {}),
+  });
 }
 
 async function promoteLink(id) {

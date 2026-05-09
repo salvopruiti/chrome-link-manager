@@ -262,7 +262,8 @@ function getCurrentEntryNavigation() {
   return {
     previousEntry:
       extensionState.entries.find(
-        (entry) => entry.id === currentPageState.navigationSnapshot.previousEntryId,
+        (entry) =>
+          entry.id === currentPageState.navigationSnapshot.previousEntryId,
       ) || null,
     nextEntry:
       extensionState.entries.find(
