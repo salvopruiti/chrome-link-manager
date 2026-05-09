@@ -693,6 +693,7 @@ function normalizeUrl(input, siteRules = {}) {
 
 function resolveIgnoredParams(hostname, siteRules) {
   const normalizedHostname = hostname.toLowerCase();
+  const globalRules = siteRules["*"] || [];
   const directRules = siteRules[normalizedHostname] || [];
   const wildcardRules = Object.entries(siteRules)
     .filter(([ruleHostname]) => ruleHostname.startsWith("*."))
@@ -703,7 +704,7 @@ function resolveIgnoredParams(hostname, siteRules) {
     )
     .flatMap(([, params]) => params);
 
-  return [...new Set([...directRules, ...wildcardRules])];
+  return [...new Set([...globalRules, ...directRules, ...wildcardRules])];
 }
 
 function sortSearchParams(searchParams) {

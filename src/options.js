@@ -128,7 +128,12 @@ function parseSiteRules(raw) {
       throw new Error(`Regola non valida: ${trimmed}`);
     }
 
-    siteRules[hostname.trim().toLowerCase()] = params
+    const normalizedHostname = hostname.trim().toLowerCase();
+    if (!normalizedHostname) {
+      throw new Error(`Regola non valida: ${trimmed}`);
+    }
+
+    siteRules[normalizedHostname] = params
       .split(",")
       .map((param) => param.trim())
       .filter(Boolean);
