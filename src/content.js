@@ -22,12 +22,15 @@ bootstrap();
 chrome.runtime.onMessage.addListener((message) => {
   if (message?.type === "state-updated") {
     extensionState = message.payload;
-    void refreshCurrentPageState().then(renderBar);
+    void refreshCurrentPageState({ preserveSnapshot: true }).then(renderBar);
     return;
   }
 
   if (message?.type === "show-toast") {
-    flashMessage(message.payload?.text || "Operazione completata", Boolean(message.payload?.isError));
+    flashMessage(
+      message.payload?.text || "Operazione completata",
+      Boolean(message.payload?.isError),
+    );
   }
 });
 
@@ -78,10 +81,7 @@ function waitForBody(callback) {
 }
 
 async function handleDocumentClick(event) {
-  if (
-    event.defaultPrevented ||
-    !shouldCaptureClick(event)
-  ) {
+  if (event.defaultPrevented || !shouldCaptureClick(event)) {
     return;
   }
 
@@ -147,20 +147,31 @@ function createEmptyCurrentPageState() {
     canSave: isSavableUrl(window.location.href),
     savedEntry: null,
     isBookmarked: false,
+    navigationSnapshot: null,
   };
 }
 
-async function refreshCurrentPageState() {
+async function refreshCurrentPageState(options = {}) {
   if (!isSavableUrl(window.location.href)) {
     currentPageState = createEmptyCurrentPageState();
     return;
   }
 
   try {
-    currentPageState = await sendMessage({
+    const previousSnapshot = currentPageState.navigationSnapshot;
+    const nextState = await sendMessage({
       type: "inspect-link",
       payload: { url: window.location.href },
     });
+
+    currentPageState = {
+      ...nextState,
+      navigationSnapshot: nextState.savedEntry
+        ? createNavigationSnapshot(nextState.savedEntry.id)
+        : options.preserveSnapshot
+          ? previousSnapshot
+          : null,
+    };
   } catch {
     currentPageState = createEmptyCurrentPageState();
   }
@@ -187,6 +198,7 @@ function syncCurrentPageStateFromEntries() {
       extensionState.entries.find(
         (entry) => entry.normalizedUrl === normalizedUrl,
       ) || null,
+    navigationSnapshot: currentPageState.navigationSnapshot,
   };
 }
 
@@ -220,22 +232,42 @@ function setCurrentPageBookmarked(isBookmarked) {
   };
 }
 
-function getCurrentEntryNavigation() {
-  if (!currentPageState.savedEntry) {
-    return { previousEntry: null, nextEntry: null };
-  }
+function setCurrentPageNavigationSnapshot(entryId) {
+  currentPageState = {
+    ...currentPageState,
+    navigationSnapshot: createNavigationSnapshot(entryId),
+  };
+}
 
+function createNavigationSnapshot(entryId) {
   const currentIndex = extensionState.entries.findIndex(
-    (entry) => entry.id === currentPageState.savedEntry.id,
+    (entry) => entry.id === entryId,
   );
 
   if (currentIndex === -1) {
+    return null;
+  }
+
+  return {
+    previousEntryId: extensionState.entries[currentIndex + 1]?.id || null,
+    nextEntryId: extensionState.entries[currentIndex - 1]?.id || null,
+  };
+}
+
+function getCurrentEntryNavigation() {
+  if (!currentPageState.navigationSnapshot) {
     return { previousEntry: null, nextEntry: null };
   }
 
   return {
-    previousEntry: extensionState.entries[currentIndex + 1] || null,
-    nextEntry: extensionState.entries[currentIndex - 1] || null,
+    previousEntry:
+      extensionState.entries.find(
+        (entry) => entry.id === currentPageState.navigationSnapshot.previousEntryId,
+      ) || null,
+    nextEntry:
+      extensionState.entries.find(
+        (entry) => entry.id === currentPageState.navigationSnapshot.nextEntryId,
+      ) || null,
   };
 }
 
@@ -519,6 +551,7 @@ function attachUiHandlers(root) {
             flashMessage(formatSaveFeedback(result.status));
             if (result.entry) {
               addEntryToLocalState(result.entry);
+              setCurrentPageNavigationSnapshot(result.entry.id);
             }
             renderBar();
             break;
@@ -615,7 +648,10 @@ function attachUiHandlers(root) {
 }
 
 function placeRoot(root) {
-  if (root.parentElement !== document.body || document.body.lastChild !== root) {
+  if (
+    root.parentElement !== document.body ||
+    document.body.lastChild !== root
+  ) {
     document.body.appendChild(root);
   }
 }
