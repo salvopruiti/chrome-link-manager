@@ -77,6 +77,7 @@ async function handleMessage(message, sender) {
         message.payload?.active,
         sender,
         message.payload?.openInCurrentTab,
+        message.payload?.openInNewTab,
       );
     case "open-random-link":
       return openRandomLink(sender);
@@ -417,7 +418,13 @@ async function removeLink(id) {
   return { removed: entries.length !== nextEntries.length };
 }
 
-async function openLink(id, active = true, sender, openInCurrentTab = false) {
+async function openLink(
+  id,
+  active = true,
+  sender,
+  openInCurrentTab = false,
+  openInNewTab,
+) {
   const entries = await getEntries();
   const settings = await getSettings();
   const entry = entries.find((item) => item.id === id);
@@ -426,10 +433,17 @@ async function openLink(id, active = true, sender, openInCurrentTab = false) {
     throw new Error("Link not found");
   }
 
+  const shouldOpenInNewTab =
+    typeof openInNewTab === "boolean"
+      ? openInNewTab
+      : openInCurrentTab
+        ? false
+        : settings.openLinksInNewTab;
+
   await openUrl(
     entry.url,
     Boolean(active),
-    openInCurrentTab ? false : settings.openLinksInNewTab,
+    shouldOpenInNewTab,
     sender,
   );
   return entry;

@@ -18,6 +18,7 @@
   ],
   "options_page": "src/options.html",
   "action": {
-    "default_title": "Link Manager"
+    "default_title": "Link Manager",
+    "default_popup": "src/popup.html"
   }
 }

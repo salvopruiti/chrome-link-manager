@@ -595,7 +595,7 @@ function attachUiHandlers(root) {
           case "open":
             await sendMessage({
               type: "open-link",
-              payload: { id, active: true },
+              payload: { id, active: true, openInNewTab: true },
             });
             break;
           case "remove":

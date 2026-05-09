@@ -7,6 +7,7 @@ Estensione Chrome Manifest V3 per salvare link in un database locale dell'estens
 - Shift+Click su un link: il link viene salvato nel database locale invece di essere aperto.
 - Deduplica URL: ignora sempre il frammento `#...` e può ignorare parametri query configurabili per dominio.
 - Mini barra comprimibile in pagina: lista dei link salvati, apertura, rimozione, apertura casuale, salvataggio di tutte le schede aperte.
+- Popup dell'estensione: ricerca rapida dei link salvati con apertura in nuova scheda, rimozione e promozione ai preferiti.
 - Promozione ai preferiti di Chrome: un pulsante sposta il link dal database locale alla cartella preferiti configurata.
 
 ## Struttura
@@ -14,6 +15,7 @@ Estensione Chrome Manifest V3 per salvare link in un database locale dell'estens
 - `manifest.json`: configurazione estensione MV3.
 - `src/background.js`: storage, normalizzazione URL, integrazione con bookmarks e tabs.
 - `src/content.js`: intercettazione Shift+Click e mini barra in pagina.
+- `src/popup.html` + `src/popup.js`: popup dell'azione con ricerca rapida nei link salvati.
 - `src/options.html` + `src/options.js`: configurazione cartella preferiti e regole query per sito.
 
 ## Installazione locale
@@ -29,6 +31,7 @@ Estensione Chrome Manifest V3 per salvare link in un database locale dell'estens
 2. Clicca `Crea/Trova cartella` per memorizzare la cartella sulla barra dei preferiti.
 3. Naviga su un sito e usa Shift+Click su un link per salvarlo.
 4. Apri la mini barra in basso a destra per gestire i link.
+5. Clicca l'icona dell'estensione per cercare rapidamente un link salvato dal popup.
 
 ## Note tecniche
 

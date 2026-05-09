@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Link Manager</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg-top: #18243f;
+        --bg-bottom: #0b1324;
+        --ink: #f4efe6;
+        --muted: rgba(244, 239, 230, 0.62);
+        --accent-start: #d9771f;
+        --accent-end: #f2bb69;
+        --chip: rgba(255, 255, 255, 0.1);
+        --chip-strong: rgba(255, 255, 255, 0.16);
+        --line: rgba(255, 255, 255, 0.08);
+      }
+
+      body {
+        margin: 0;
+        width: 380px;
+        min-height: 480px;
+        font: 14px/1.4 "Segoe UI", sans-serif;
+        color: var(--ink);
+        background: linear-gradient(180deg, var(--bg-top) 0%, var(--bg-bottom) 100%);
+      }
+
+      .shell {
+        display: grid;
+        min-height: 480px;
+      }
+
+      .header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 14px 16px;
+        color: #24170b;
+        background: linear-gradient(90deg, var(--accent-start) 0%, var(--accent-end) 100%);
+      }
+
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 700;
+      }
+
+      .count {
+        min-width: 28px;
+        padding: 4px 8px;
+        border-radius: 999px;
+        text-align: center;
+        background: rgba(36, 23, 11, 0.16);
+        font-weight: 700;
+      }
+
+      .body {
+        display: grid;
+        gap: 12px;
+        padding: 14px 12px 12px;
+      }
+
+      .toolbar {
+        display: flex;
+        gap: 8px;
+      }
+
+      .search {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex: 1;
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid var(--line);
+      }
+
+      .search input {
+        all: unset;
+        flex: 1;
+        min-width: 0;
+        color: var(--ink);
+      }
+
+      .search input::placeholder {
+        color: var(--muted);
+      }
+
+      button {
+        appearance: none;
+        border: 0;
+        cursor: pointer;
+        font: inherit;
+      }
+
+      .icon-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 38px;
+        height: 38px;
+        border-radius: 999px;
+        background: var(--chip);
+        color: var(--ink);
+      }
+
+      .list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        gap: 8px;
+        max-height: 370px;
+        overflow: auto;
+      }
+
+      .entry,
+      .empty {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 8px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.06);
+      }
+
+      .open {
+        display: grid;
+        gap: 3px;
+        flex: 1;
+        min-width: 0;
+        padding: 0;
+        color: inherit;
+        text-align: left;
+        background: transparent;
+      }
+
+      .title,
+      .url {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .title {
+        color: var(--ink);
+      }
+
+      .url {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .actions {
+        display: flex;
+        gap: 8px;
+        flex-shrink: 0;
+      }
+
+      .actions .icon-button {
+        width: 34px;
+        height: 34px;
+        background: var(--chip-strong);
+      }
+
+      .empty {
+        justify-content: center;
+        color: var(--muted);
+      }
+
+      .icon,
+      .icon svg,
+      .spinner,
+      .spinner svg {
+        display: block;
+        width: 16px;
+        height: 16px;
+      }
+
+      .icon svg {
+        fill: currentColor;
+      }
+
+      .spinner svg {
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2;
+        animation: spin 0.9s linear infinite;
+      }
+
+      .status {
+        min-height: 1.2em;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <header class="header">
+        <div class="brand">
+          <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M13 2 5 14h5l-1 8 8-12h-5l1-8Z"/></svg></span>
+          <span>Link Manager</span>
+        </div>
+        <span id="count" class="count">0</span>
+      </header>
+      <section class="body">
+        <div class="toolbar">
+          <label class="search" aria-label="Cerca link salvati">
+            <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M10 4a6 6 0 1 0 3.87 10.58l4.27 4.28 1.42-1.42-4.28-4.27A6 6 0 0 0 10 4Zm0 2a4 4 0 1 1 0 8 4 4 0 0 1 0-8Z"/></svg></span>
+            <input id="searchInput" type="search" placeholder="Cerca nei link salvati">
+          </label>
+          <button id="randomButton" class="icon-button" type="button" title="Apri link casuale" aria-label="Apri link casuale">
+            <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M16 3h5v5h-2V6.41l-4.29 4.3-1.42-1.42L17.59 5H16V3ZM4 7h3.59l9 9H20v-2h-2.59l-9-9H4V7Zm9.29 5.29 1.42 1.42L10.41 18H13v2H8v-5h2v1.59l3.29-3.3ZM19 19v-1.59l-2.29-2.3 1.42-1.42 2.87 2.88V14h2v5h-5Z"/></svg></span>
+          </button>
+        </div>
+        <ul id="results" class="list"></ul>
+        <div id="status" class="status" aria-live="polite"></div>
+      </section>
+    </main>
+    <script type="module" src="./popup.js"></script>
+  </body>
+  </html>
