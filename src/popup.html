@@ -70,11 +70,17 @@
 
       .body {
         display: grid;
-        grid-template-rows: auto 1fr auto;
+        grid-template-rows: auto auto 1fr auto;
         gap: 12px;
         padding: 14px 12px 12px;
         min-height: 0;
         overflow: hidden;
+      }
+
+      .quick-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
       }
 
       .toolbar {
@@ -120,6 +126,11 @@
         border-radius: 999px;
         background: var(--chip);
         color: var(--ink);
+      }
+
+      .icon-button[disabled] {
+        opacity: 0.45;
+        cursor: progress;
       }
 
       .list {
@@ -230,14 +241,12 @@
         <span id="count" class="count">0</span>
       </header>
       <section class="body">
+        <div id="quickActions" class="quick-actions"></div>
         <div class="toolbar">
           <label class="search" aria-label="Cerca link salvati">
             <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M10 4a6 6 0 1 0 3.87 10.58l4.27 4.28 1.42-1.42-4.28-4.27A6 6 0 0 0 10 4Zm0 2a4 4 0 1 1 0 8 4 4 0 0 1 0-8Z"/></svg></span>
             <input id="searchInput" type="search" placeholder="Cerca nei link salvati">
           </label>
-          <button id="randomButton" class="icon-button" type="button" title="Apri link casuale" aria-label="Apri link casuale">
-            <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M16 3h5v5h-2V6.41l-4.29 4.3-1.42-1.42L17.59 5H16V3ZM4 7h3.59l9 9H20v-2h-2.59l-9-9H4V7Zm9.29 5.29 1.42 1.42L10.41 18H13v2H8v-5h2v1.59l3.29-3.3ZM19 19v-1.59l-2.29-2.3 1.42-1.42 2.87 2.88V14h2v5h-5Z"/></svg></span>
-          </button>
         </div>
         <ul id="results" class="list"></ul>
         <div id="status" class="status" aria-live="polite"></div>
