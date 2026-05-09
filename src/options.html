@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Link Manager Settings</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f2ecdf;
+        --panel: #fffaf1;
+        --ink: #1e1b16;
+        --accent: #c96b17;
+        --border: #d8ccb7;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Segoe UI", sans-serif;
+        background:
+          radial-gradient(circle at top left, rgba(201, 107, 23, 0.15), transparent 30%),
+          linear-gradient(180deg, #f7f0e2 0%, var(--bg) 100%);
+        color: var(--ink);
+      }
+
+      main {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 40px 20px 80px;
+      }
+
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 24px;
+        box-shadow: 0 18px 40px rgba(30, 27, 22, 0.08);
+        margin-bottom: 20px;
+      }
+
+      h1, h2 {
+        margin-top: 0;
+      }
+
+      label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 8px;
+      }
+
+      input, textarea, button, select {
+        font: inherit;
+      }
+
+      input[type="text"], textarea, select {
+        width: 100%;
+        box-sizing: border-box;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 12px 14px;
+        background: #fff;
+      }
+
+      textarea {
+        min-height: 220px;
+        resize: vertical;
+      }
+
+      .row {
+        display: flex;
+        gap: 16px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      .row > * {
+        flex: 1;
+      }
+
+      button {
+        border: 0;
+        border-radius: 999px;
+        padding: 12px 18px;
+        background: var(--accent);
+        color: #fff;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      .secondary {
+        background: transparent;
+        color: var(--ink);
+        border: 1px solid var(--border);
+      }
+
+      .status {
+        margin-top: 12px;
+        min-height: 1.2em;
+      }
+
+      code {
+        background: rgba(30, 27, 22, 0.08);
+        padding: 2px 6px;
+        border-radius: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="card">
+        <h1>Link Manager</h1>
+        <p>Salva un link con <strong>Shift+Click</strong>, poi aprilo dalla mini barra presente nelle pagine.</p>
+      </section>
+
+      <section class="card">
+        <h2>Preferiti Chrome</h2>
+        <div class="row">
+          <div>
+            <label for="bookmarkFolderId">Cartella preferiti</label>
+            <select id="bookmarkFolderId"></select>
+          </div>
+          <div>
+            <label for="bookmarkFolderTitle">Nuova cartella opzionale</label>
+            <input id="bookmarkFolderTitle" type="text" placeholder="Link Manager">
+          </div>
+          <div>
+            <label>&nbsp;</label>
+            <button id="ensureFolderButton" type="button">Crea/Trova cartella</button>
+          </div>
+        </div>
+        <p>Seleziona una cartella esistente dalla lista, oppure lascia vuoto e usa il nome per crearne o ritrovarne una sulla barra preferiti.</p>
+      </section>
+
+      <section class="card">
+        <h2>Importa Da Preferiti</h2>
+        <div class="row">
+          <div>
+            <label for="importFolderId">Cartella da importare</label>
+            <select id="importFolderId"></select>
+          </div>
+          <div>
+            <label>&nbsp;</label>
+            <button id="importFolderButton" type="button">Importa link da cartella</button>
+          </div>
+        </div>
+        <p>Importa nel database locale tutti i link della cartella selezionata, comprese le sottocartelle.</p>
+      </section>
+
+      <section class="card">
+        <h2>Regole URL</h2>
+        <p>Una riga per dominio. Formato: <code>dominio.tld=utm_source,utm_campaign</code> oppure <code>*.dominio.tld=ref</code>.</p>
+        <label for="siteRules">Parametri query da ignorare per il confronto</label>
+        <textarea id="siteRules" spellcheck="false"></textarea>
+      </section>
+
+      <section class="card">
+        <div class="row">
+          <label><input id="captureWithShift" type="checkbox"> Abilita salvataggio con Shift+Click</label>
+          <label><input id="openLinksInNewTab" type="checkbox"> Apri i link in una nuova scheda</label>
+          <button id="saveButton" type="button">Salva impostazioni</button>
+        </div>
+        <div id="status" class="status" aria-live="polite"></div>
+      </section>
+    </main>
+    <script type="module" src="./options.js"></script>
+  </body>
+  </html>
