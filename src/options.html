@@ -154,6 +154,36 @@
       </section>
 
       <section class="card">
+        <h2>Account e Sync</h2>
+        <p>Accedi con magic link per sincronizzare il database dei link su Supabase tra piu browser e dispositivi.</p>
+        <p>Redirect URL da configurare in Supabase Auth: <code id="authRedirectUrl"></code></p>
+        <div class="row">
+          <div>
+            <label for="authEmail">Email</label>
+            <input id="authEmail" type="text" placeholder="nome@dominio.it">
+          </div>
+          <div>
+            <label>&nbsp;</label>
+            <button id="sendMagicLinkButton" type="button">Invia magic link</button>
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label>Stato account</label>
+            <div id="authStatus">Non autenticato</div>
+          </div>
+          <div>
+            <label>Ultima sync</label>
+            <div id="lastSyncAt">Mai</div>
+          </div>
+        </div>
+        <div class="row">
+          <button id="syncNowButton" type="button">Sincronizza ora</button>
+          <button id="signOutButton" type="button" class="secondary">Esci</button>
+        </div>
+      </section>
+
+      <section class="card">
         <div class="row">
           <label><input id="captureWithShift" type="checkbox"> Abilita salvataggio con Shift+Click</label>
           <label><input id="openLinksInNewTab" type="checkbox"> Apri i link in una nuova scheda</label>

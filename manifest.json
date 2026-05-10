@@ -17,6 +17,12 @@
     }
   ],
   "options_page": "src/options.html",
+  "web_accessible_resources": [
+    {
+      "resources": ["src/auth-callback.html", "src/auth-callback.js"],
+      "matches": ["<all_urls>"]
+    }
+  ],
   "action": {
     "default_title": "Link Manager",
     "default_popup": "src/popup.html"

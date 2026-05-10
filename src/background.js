@@ -1,11 +1,18 @@
+import { SUPABASE_ANON_KEY, SUPABASE_URL } from "./supabase-config.js";
+
 const STORAGE_KEYS = {
   entries: "entries",
   settings: "settings",
   bookmarkFolderId: "bookmarkFolderId",
+  authSession: "authSession",
+  lastSyncAt: "lastSyncAt",
+  pendingSync: "pendingSync",
+  syncUserId: "syncUserId",
 };
 
 const SETTINGS_STORAGE = chrome.storage.sync;
 const LOCAL_SETTINGS_STORAGE = chrome.storage.local;
+const SUPABASE_PAGE_SIZE = 1000;
 
 const CONTEXT_MENU_ID = "save-link-from-context-menu";
 
@@ -94,6 +101,14 @@ async function handleMessage(message, sender) {
       return updateSettings(message.payload);
     case "ensure-bookmark-folder":
       return ensureBookmarkFolder();
+    case "send-magic-link":
+      return sendMagicLink(message.payload?.email);
+    case "complete-auth-session":
+      return completeAuthSession(message.payload);
+    case "sign-out-supabase":
+      return signOutSupabase();
+    case "sync-supabase":
+      return syncSupabase();
     default:
       throw new Error("Unsupported message type");
   }
@@ -155,17 +170,23 @@ async function sendToastToTab(tabId, text, isError = false) {
 }
 
 async function getState() {
-  const [entries, settings] = await Promise.all([getEntries(), getSettings()]);
-  return { entries, settings };
+  const [entries, settings, auth] = await Promise.all([
+    getEntries(),
+    getSettings(),
+    getAuthState(),
+  ]);
+  return { entries, settings, auth };
 }
 
 async function getEntries() {
   const data = await chrome.storage.local.get(STORAGE_KEYS.entries);
-  return data[STORAGE_KEYS.entries] || [];
+  return normalizeEntries(data[STORAGE_KEYS.entries] || []);
 }
 
 async function setEntries(entries) {
-  await chrome.storage.local.set({ [STORAGE_KEYS.entries]: entries });
+  await chrome.storage.local.set({
+    [STORAGE_KEYS.entries]: normalizeEntries(entries),
+  });
   await broadcastState();
 }
 
@@ -231,6 +252,486 @@ async function getStoredSyncSettings() {
     ...DEFAULT_SYNC_SETTINGS,
     ...pickSyncSettings(sanitizeSettings(data[STORAGE_KEYS.settings] || {})),
   };
+}
+
+async function getAuthSession() {
+  const data = await LOCAL_SETTINGS_STORAGE.get(STORAGE_KEYS.authSession);
+  return data[STORAGE_KEYS.authSession] || null;
+}
+
+async function setAuthSession(session) {
+  await LOCAL_SETTINGS_STORAGE.set({ [STORAGE_KEYS.authSession]: session });
+  await broadcastState();
+}
+
+async function clearAuthSession() {
+  await LOCAL_SETTINGS_STORAGE.remove(STORAGE_KEYS.authSession);
+  await LOCAL_SETTINGS_STORAGE.remove(STORAGE_KEYS.lastSyncAt);
+  await LOCAL_SETTINGS_STORAGE.remove(STORAGE_KEYS.syncUserId);
+  await broadcastState();
+}
+
+async function getAuthState() {
+  const [session, lastSyncAt] = await Promise.all([
+    getAuthSession(),
+    getLastSyncAt(),
+  ]);
+
+  return {
+    isConfigured: Boolean(SUPABASE_URL && SUPABASE_ANON_KEY),
+    isAuthenticated: Boolean(session?.accessToken),
+    email: session?.user?.email || "",
+    userId: session?.user?.id || null,
+    lastSyncAt,
+  };
+}
+
+async function getLastSyncAt() {
+  const data = await LOCAL_SETTINGS_STORAGE.get(STORAGE_KEYS.lastSyncAt);
+  return data[STORAGE_KEYS.lastSyncAt] || null;
+}
+
+async function setLastSyncAt(value) {
+  await LOCAL_SETTINGS_STORAGE.set({ [STORAGE_KEYS.lastSyncAt]: value });
+}
+
+async function getSyncUserId() {
+  const data = await LOCAL_SETTINGS_STORAGE.get(STORAGE_KEYS.syncUserId);
+  return data[STORAGE_KEYS.syncUserId] || null;
+}
+
+async function setSyncUserId(userId) {
+  await LOCAL_SETTINGS_STORAGE.set({ [STORAGE_KEYS.syncUserId]: userId });
+}
+
+async function getPendingSync() {
+  const data = await LOCAL_SETTINGS_STORAGE.get(STORAGE_KEYS.pendingSync);
+  return {
+    upserts: {},
+    deletes: {},
+    ...(data[STORAGE_KEYS.pendingSync] || {}),
+  };
+}
+
+async function setPendingSync(pendingSync) {
+  await LOCAL_SETTINGS_STORAGE.set({ [STORAGE_KEYS.pendingSync]: pendingSync });
+}
+
+async function queueEntriesForUpsert(entries) {
+  if (!entries.length) {
+    return;
+  }
+
+  const pendingSync = await getPendingSync();
+
+  for (const entry of normalizeEntries(entries)) {
+    pendingSync.upserts[entry.normalizedUrl] = serializePendingUpsert(entry);
+    delete pendingSync.deletes[entry.normalizedUrl];
+  }
+
+  await setPendingSync(pendingSync);
+}
+
+async function queueEntryDelete(entry) {
+  if (!entry?.normalizedUrl) {
+    return;
+  }
+
+  const pendingSync = await getPendingSync();
+  delete pendingSync.upserts[entry.normalizedUrl];
+  pendingSync.deletes[entry.normalizedUrl] = {
+    normalizedUrl: entry.normalizedUrl,
+    deletedAt: new Date().toISOString(),
+  };
+  await setPendingSync(pendingSync);
+}
+
+async function sendMagicLink(email) {
+  const trimmedEmail = String(email || "")
+    .trim()
+    .toLowerCase();
+  if (!trimmedEmail) {
+    throw new Error("Inserisci un indirizzo email valido");
+  }
+
+  const response = await fetchSupabase("/auth/v1/otp", {
+    method: "POST",
+    body: JSON.stringify({
+      email: trimmedEmail,
+      create_user: true,
+      email_redirect_to: chrome.runtime.getURL("src/auth-callback.html"),
+    }),
+  });
+
+  await readSupabaseJson(response);
+
+  return {
+    sent: true,
+    email: trimmedEmail,
+  };
+}
+
+async function completeAuthSession(payload) {
+  const payloadSession = payload?.token_hash
+    ? await exchangeTokenHashForSession(payload)
+    : payload;
+  const nextSession = normalizeSupabaseSession(payloadSession);
+  const user = await fetchSupabaseUser(nextSession.accessToken);
+  const session = {
+    ...nextSession,
+    user,
+  };
+
+  await setAuthSession(session);
+  await syncSupabase();
+  return getAuthState();
+}
+
+async function exchangeTokenHashForSession(payload) {
+  const response = await fetchSupabase("/auth/v1/verify", {
+    method: "POST",
+    body: JSON.stringify({
+      token_hash: payload.token_hash,
+      type: payload.type || "email",
+    }),
+  });
+
+  return readSupabaseJson(response);
+}
+
+async function signOutSupabase() {
+  const session = await getAuthSession();
+
+  if (session?.accessToken) {
+    try {
+      const response = await fetchSupabase("/auth/v1/logout", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.accessToken}`,
+        },
+      });
+      await readSupabaseJson(response, true);
+    } catch {
+      // Local sign-out should still succeed if the remote session is already invalid.
+    }
+  }
+
+  await clearAuthSession();
+  return getAuthState();
+}
+
+async function syncSupabase() {
+  const session = await ensureValidAuthSession();
+  if (!session?.user?.id) {
+    throw new Error("Effettua prima l'accesso con magic link");
+  }
+
+  const syncedUserId = await getSyncUserId();
+  if (syncedUserId && syncedUserId !== session.user.id) {
+    await resetLocalSyncCache();
+  }
+
+  const syncStartedAt = new Date().toISOString();
+  await flushPendingSync(session);
+
+  const lastSyncAt = await getLastSyncAt();
+  const [localEntries, remoteLinks] = await Promise.all([
+    getEntries(),
+    fetchRemoteLinks(session, lastSyncAt),
+  ]);
+  const mergedEntries = mergeEntriesForSync(localEntries, remoteLinks);
+
+  if (!lastSyncAt && mergedEntries.length) {
+    await upsertLinksToSupabase(mergedEntries, session);
+  }
+
+  await setEntries(mergedEntries);
+  await setLastSyncAt(syncStartedAt);
+  await setSyncUserId(session.user.id);
+  await broadcastState();
+
+  return {
+    syncedCount: mergedEntries.length,
+    changesPulled: remoteLinks.length,
+    lastSyncAt: syncStartedAt,
+  };
+}
+
+function normalizeSupabaseSession(payload = {}) {
+  return {
+    accessToken: payload.access_token || payload.accessToken || "",
+    refreshToken: payload.refresh_token || payload.refreshToken || "",
+    expiresAt:
+      Number(payload.expires_at || payload.expiresAt || 0) ||
+      Math.floor(Date.now() / 1000) + Number(payload.expires_in || 3600),
+    tokenType: payload.token_type || payload.tokenType || "bearer",
+  };
+}
+
+async function ensureValidAuthSession() {
+  const session = await getAuthSession();
+  if (!session?.accessToken || !session?.refreshToken) {
+    return null;
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  if ((session.expiresAt || 0) > now + 60) {
+    return session;
+  }
+
+  const response = await fetchSupabase(
+    "/auth/v1/token?grant_type=refresh_token",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        refresh_token: session.refreshToken,
+      }),
+    },
+  );
+  const data = await readSupabaseJson(response);
+  const refreshedSession = {
+    ...normalizeSupabaseSession(data),
+    user: data.user || session.user,
+  };
+
+  await setAuthSession(refreshedSession);
+  return refreshedSession;
+}
+
+async function fetchSupabaseUser(accessToken) {
+  const response = await fetchSupabase("/auth/v1/user", {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  return readSupabaseJson(response);
+}
+
+async function fetchRemoteLinks(session, changedAfter = null) {
+  const remoteLinks = [];
+  let offset = 0;
+
+  while (true) {
+    const query = new URLSearchParams({
+      select:
+        "id,url,normalized_url,title,page_url,created_at,updated_at,deleted_at",
+      order: "updated_at.desc",
+      limit: String(SUPABASE_PAGE_SIZE),
+      offset: String(offset),
+    });
+
+    if (changedAfter) {
+      query.set("updated_at", `gt.${changedAfter}`);
+    }
+
+    const response = await fetchSupabase(`/rest/v1/links?${query.toString()}`, {
+      headers: {
+        Authorization: `Bearer ${session.accessToken}`,
+      },
+    });
+
+    const page = await readSupabaseJson(response);
+    remoteLinks.push(...page);
+
+    if (page.length < SUPABASE_PAGE_SIZE) {
+      break;
+    }
+
+    offset += SUPABASE_PAGE_SIZE;
+  }
+
+  return remoteLinks;
+}
+
+async function upsertLinksToSupabase(entries, session) {
+  if (!entries.length) {
+    return;
+  }
+
+  const payload = entries.map((entry) => ({
+    id: entry.id,
+    user_id: session.user.id,
+    url: entry.url,
+    normalized_url: entry.normalizedUrl,
+    title: entry.title,
+    page_url: entry.pageUrl || null,
+    created_at: entry.createdAt,
+    updated_at: entry.updatedAt,
+    deleted_at: null,
+  }));
+
+  const response = await fetchSupabase(
+    "/rest/v1/links?on_conflict=user_id,normalized_url",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${session.accessToken}`,
+        Prefer: "resolution=merge-duplicates,return=minimal",
+      },
+      body: JSON.stringify(payload),
+    },
+  );
+
+  await readSupabaseJson(response, true);
+}
+
+async function syncCreatedEntries(entries) {
+  await queueEntriesForUpsert(entries);
+  const session = await ensureValidAuthSession();
+  if (!session?.user?.id) {
+    return;
+  }
+
+  await flushPendingSync(session);
+  await broadcastState();
+}
+
+async function markRemoteLinkDeleted(entry) {
+  await queueEntryDelete(entry);
+  const session = await ensureValidAuthSession();
+  if (!session?.accessToken || !entry?.normalizedUrl) {
+    return;
+  }
+
+  await flushPendingSync(session);
+}
+
+async function flushPendingSync(session) {
+  const pendingSync = await getPendingSync();
+  const pendingDeletes = Object.values(pendingSync.deletes);
+  const pendingUpserts = Object.values(pendingSync.upserts);
+
+  if (!pendingDeletes.length && !pendingUpserts.length) {
+    return;
+  }
+
+  for (const pendingDelete of pendingDeletes) {
+    await patchRemoteLinkDeleted(pendingDelete, session);
+    delete pendingSync.deletes[pendingDelete.normalizedUrl];
+  }
+
+  if (pendingUpserts.length) {
+    await upsertLinksToSupabase(pendingUpserts, session);
+    for (const pendingUpsert of pendingUpserts) {
+      delete pendingSync.upserts[pendingUpsert.normalizedUrl];
+    }
+  }
+
+  await setPendingSync(pendingSync);
+}
+
+async function resetLocalSyncCache() {
+  await setEntries([]);
+  await setPendingSync({ upserts: {}, deletes: {} });
+  await setLastSyncAt(null);
+}
+
+async function patchRemoteLinkDeleted(entry, session) {
+
+  const response = await fetchSupabase(
+    `/rest/v1/links?normalized_url=eq.${encodeURIComponent(entry.normalizedUrl)}`,
+    {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${session.accessToken}`,
+      },
+      body: JSON.stringify({
+        deleted_at: entry.deletedAt,
+      }),
+    },
+  );
+
+  await readSupabaseJson(response, true);
+}
+
+function mergeEntriesForSync(localEntries, remoteLinks) {
+  const merged = new Map(
+    localEntries.map((entry) => [entry.normalizedUrl, { ...entry }]),
+  );
+
+  for (const remoteLink of remoteLinks) {
+    if (remoteLink.deleted_at) {
+      merged.delete(remoteLink.normalized_url);
+      continue;
+    }
+
+    merged.set(remoteLink.normalized_url, {
+      id: remoteLink.id,
+      url: remoteLink.url,
+      normalizedUrl: remoteLink.normalized_url,
+      title: remoteLink.title,
+      pageUrl: remoteLink.page_url,
+      createdAt: remoteLink.created_at,
+      updatedAt: remoteLink.updated_at || remoteLink.created_at,
+    });
+  }
+
+  return [...merged.values()].sort((left, right) =>
+    String(right.updatedAt || right.createdAt || "").localeCompare(
+      String(left.updatedAt || left.createdAt || ""),
+    ),
+  );
+}
+
+function normalizeEntries(entries) {
+  return entries.map((entry) => ({
+    ...entry,
+    createdAt: entry.createdAt || new Date().toISOString(),
+    updatedAt: entry.updatedAt || entry.createdAt || new Date().toISOString(),
+  }));
+}
+
+function serializePendingUpsert(entry) {
+  return {
+    id: entry.id,
+    url: entry.url,
+    normalizedUrl: entry.normalizedUrl,
+    title: entry.title,
+    pageUrl: entry.pageUrl || null,
+    createdAt: entry.createdAt,
+    updatedAt: entry.updatedAt || entry.createdAt,
+  };
+}
+
+function fetchSupabase(path, options = {}, skipContentType = false) {
+  const headers = {
+    apikey: SUPABASE_ANON_KEY,
+    ...(skipContentType ? {} : { "Content-Type": "application/json" }),
+    ...(options.headers || {}),
+  };
+
+  return fetch(`${SUPABASE_URL}${path}`, {
+    ...options,
+    headers,
+  });
+}
+
+async function readSupabaseJson(response, allowEmpty = false) {
+  if (!response.ok) {
+    const errorPayload = await safeJson(response);
+    throw new Error(
+      errorPayload?.msg ||
+        errorPayload?.error_description ||
+        errorPayload?.message ||
+        `Supabase error ${response.status}`,
+    );
+  }
+
+  const text = await response.text();
+  if (!text) {
+    return allowEmpty ? null : {};
+  }
+
+  return JSON.parse(text);
+}
+
+async function safeJson(response) {
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
 }
 
 function pickSyncSettings(settings) {
@@ -366,6 +867,7 @@ async function saveLinks(links) {
 
   if (createdEntries.length) {
     await setEntries(entries);
+    void syncCreatedEntries(createdEntries).catch(() => undefined);
   }
 
   if (links.length === 1) {
@@ -480,8 +982,12 @@ async function removeLinkByUrl(url) {
 
 async function removeLink(id) {
   const entries = await getEntries();
+  const removedEntry = entries.find((entry) => entry.id === id) || null;
   const nextEntries = entries.filter((entry) => entry.id !== id);
   await setEntries(nextEntries);
+  if (removedEntry) {
+    void markRemoteLinkDeleted(removedEntry).catch(() => undefined);
+  }
   return { removed: entries.length !== nextEntries.length };
 }
 

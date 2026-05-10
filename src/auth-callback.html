@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Link Manager Auth</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f2ecdf;
+        --panel: #fffaf1;
+        --ink: #1e1b16;
+        --accent: #c96b17;
+        --border: #d8ccb7;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        box-sizing: border-box;
+        font-family: "Segoe UI", sans-serif;
+        background:
+          radial-gradient(circle at top left, rgba(201, 107, 23, 0.15), transparent 30%),
+          linear-gradient(180deg, #f7f0e2 0%, var(--bg) 100%);
+        color: var(--ink);
+      }
+
+      main {
+        width: min(520px, 100%);
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 24px;
+        box-shadow: 0 18px 40px rgba(30, 27, 22, 0.08);
+      }
+
+      h1 {
+        margin-top: 0;
+      }
+
+      p {
+        margin-bottom: 0;
+        line-height: 1.5;
+      }
+
+      .error {
+        color: #b42318;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Accesso Link Manager</h1>
+      <p id="status">Completo l'accesso...</p>
+    </main>
+    <script type="module" src="./auth-callback.js"></script>
+  </body>
+</html>

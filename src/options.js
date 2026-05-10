@@ -5,18 +5,31 @@ const bookmarkFolderIdInput = document.getElementById("bookmarkFolderId");
 const importFolderIdInput = document.getElementById("importFolderId");
 const bookmarkFolderTitleInput = document.getElementById("bookmarkFolderTitle");
 const siteRulesInput = document.getElementById("siteRules");
+const authEmailInput = document.getElementById("authEmail");
+const authStatusNode = document.getElementById("authStatus");
+const lastSyncAtNode = document.getElementById("lastSyncAt");
+const authRedirectUrlNode = document.getElementById("authRedirectUrl");
 const saveButton = document.getElementById("saveButton");
 const ensureFolderButton = document.getElementById("ensureFolderButton");
 const importFolderButton = document.getElementById("importFolderButton");
+const sendMagicLinkButton = document.getElementById("sendMagicLinkButton");
+const syncNowButton = document.getElementById("syncNowButton");
+const signOutButton = document.getElementById("signOutButton");
 
 init();
 
 saveButton.addEventListener("click", saveSettings);
 ensureFolderButton.addEventListener("click", ensureFolder);
 importFolderButton.addEventListener("click", importFolder);
+sendMagicLinkButton.addEventListener("click", sendMagicLink);
+syncNowButton.addEventListener("click", syncNow);
+signOutButton.addEventListener("click", signOut);
 
 async function init() {
   try {
+    authRedirectUrlNode.textContent = chrome.runtime.getURL(
+      "src/auth-callback.html",
+    );
     const [state, folders] = await Promise.all([
       sendMessage({ type: "get-state" }),
       sendMessage({ type: "list-bookmark-folders" }),
@@ -27,6 +40,8 @@ async function init() {
     bookmarkFolderTitleInput.value =
       state.settings.bookmarkFolderTitle || "Link Manager";
     siteRulesInput.value = formatSiteRules(state.settings.siteRules || {});
+    authEmailInput.value = state.auth?.email || authEmailInput.value || "";
+    renderAuthState(state.auth);
     renderBookmarkFolderOptions(folders, state.settings.bookmarkFolderId);
     renderImportFolderOptions(folders);
   } catch (error) {
@@ -51,6 +66,78 @@ async function saveSettings() {
     setStatus("Impostazioni salvate");
   } catch (error) {
     setStatus(error.message || "Errore salvataggio impostazioni", true);
+  }
+}
+
+async function sendMagicLink() {
+  try {
+    setButtonBusy(sendMagicLinkButton, true, "Invio...");
+    const result = await sendMessage({
+      type: "send-magic-link",
+      payload: { email: authEmailInput.value },
+    });
+    setStatus(`Magic link inviato a ${result.email}`);
+  } catch (error) {
+    setStatus(error.message || "Errore invio magic link", true);
+  } finally {
+    setButtonBusy(sendMagicLinkButton, false);
+  }
+}
+
+async function syncNow() {
+  try {
+    setButtonBusy(syncNowButton, true, "Sync...");
+    const result = await sendMessage({ type: "sync-supabase" });
+    await refreshState();
+    setStatus(`Sincronizzati ${result.syncedCount} link`);
+  } catch (error) {
+    setStatus(error.message || "Errore sincronizzazione", true);
+  } finally {
+    setButtonBusy(syncNowButton, false);
+  }
+}
+
+async function signOut() {
+  try {
+    setButtonBusy(signOutButton, true, "Uscita...");
+    await sendMessage({ type: "sign-out-supabase" });
+    await refreshState();
+    setStatus("Disconnessione completata");
+  } catch (error) {
+    setStatus(error.message || "Errore disconnessione", true);
+  } finally {
+    setButtonBusy(signOutButton, false);
+  }
+}
+
+async function refreshState() {
+  const [state, folders] = await Promise.all([
+    sendMessage({ type: "get-state" }),
+    sendMessage({ type: "list-bookmark-folders" }),
+  ]);
+
+  renderAuthState(state.auth);
+  authEmailInput.value = state.auth?.email || authEmailInput.value || "";
+  renderBookmarkFolderOptions(folders, state.settings.bookmarkFolderId);
+  renderImportFolderOptions(folders, importFolderIdInput.value);
+}
+
+function renderAuthState(auth = {}) {
+  authStatusNode.textContent = auth.isAuthenticated
+    ? `Connesso come ${auth.email || "utente"}`
+    : "Non autenticato";
+  lastSyncAtNode.textContent = auth.lastSyncAt
+    ? formatDateTime(auth.lastSyncAt)
+    : "Mai";
+  syncNowButton.disabled = !auth.isAuthenticated;
+  signOutButton.disabled = !auth.isAuthenticated;
+}
+
+function formatDateTime(value) {
+  try {
+    return new Date(value).toLocaleString("it-IT");
+  } catch {
+    return value;
   }
 }
 

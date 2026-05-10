@@ -1,0 +1,4 @@
+export const SUPABASE_URL = "https://dfgqbadcobbivbasgelc.supabase.co";
+
+export const SUPABASE_ANON_KEY =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmZ3FiYWRjb2JiaXZiYXNnZWxjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgzNzcyNDYsImV4cCI6MjA5Mzk1MzI0Nn0.8OkkNVZNSx8Te6LeOwZS6TWe2t0bWMQjnnE5gNVAqQE";
