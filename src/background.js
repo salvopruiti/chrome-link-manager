@@ -1,7 +1,11 @@
 const STORAGE_KEYS = {
   entries: "entries",
   settings: "settings",
+  bookmarkFolderId: "bookmarkFolderId",
 };
+
+const SETTINGS_STORAGE = chrome.storage.sync;
+const LOCAL_SETTINGS_STORAGE = chrome.storage.local;
 
 const CONTEXT_MENU_ID = "save-link-from-context-menu";
 
@@ -14,19 +18,22 @@ const DEFAULT_SETTINGS = {
   siteRules: {},
 };
 
+const DEFAULT_SYNC_SETTINGS = {
+  captureWithShift: DEFAULT_SETTINGS.captureWithShift,
+  captureAllClicks: DEFAULT_SETTINGS.captureAllClicks,
+  openLinksInNewTab: DEFAULT_SETTINGS.openLinksInNewTab,
+  bookmarkFolderTitle: DEFAULT_SETTINGS.bookmarkFolderTitle,
+  siteRules: DEFAULT_SETTINGS.siteRules,
+};
+
 chrome.runtime.onInstalled.addListener(async () => {
-  const settings = await getSettings();
-  await chrome.storage.local.set({
-    [STORAGE_KEYS.settings]: {
-      ...DEFAULT_SETTINGS,
-      ...settings,
-    },
-  });
+  await initializeSettingsStorage();
 
   await ensureContextMenu();
 });
 
 chrome.runtime.onStartup.addListener(() => {
+  void initializeSettingsStorage();
   void ensureContextMenu();
 });
 
@@ -163,23 +170,83 @@ async function setEntries(entries) {
 }
 
 async function getSettings() {
-  const data = await chrome.storage.local.get(STORAGE_KEYS.settings);
+  await initializeSettingsStorage();
+  const [syncData, localData] = await Promise.all([
+    SETTINGS_STORAGE.get(STORAGE_KEYS.settings),
+    LOCAL_SETTINGS_STORAGE.get(STORAGE_KEYS.bookmarkFolderId),
+  ]);
+
   return {
     ...DEFAULT_SETTINGS,
-    ...(data[STORAGE_KEYS.settings] || {}),
+    ...(syncData[STORAGE_KEYS.settings] || {}),
+    bookmarkFolderId:
+      localData[STORAGE_KEYS.bookmarkFolderId] ||
+      DEFAULT_SETTINGS.bookmarkFolderId,
   };
 }
 
 async function updateSettings(nextSettings) {
-  const current = await getSettings();
-  const updated = {
-    ...current,
-    ...sanitizeSettings(nextSettings),
+  const sanitized = sanitizeSettings(nextSettings);
+  const syncSettings = pickSyncSettings(sanitized);
+  const localSettings = pickLocalSettings(sanitized);
+
+  if (Object.keys(syncSettings).length) {
+    const currentSyncSettings = await getStoredSyncSettings();
+    await SETTINGS_STORAGE.set({
+      [STORAGE_KEYS.settings]: {
+        ...currentSyncSettings,
+        ...syncSettings,
+      },
+    });
+  }
+
+  if (Object.hasOwn(localSettings, "bookmarkFolderId")) {
+    await LOCAL_SETTINGS_STORAGE.set({
+      [STORAGE_KEYS.bookmarkFolderId]: localSettings.bookmarkFolderId,
+    });
+  }
+
+  await broadcastState();
+  return getSettings();
+}
+
+async function initializeSettingsStorage() {
+  const data = await SETTINGS_STORAGE.get(STORAGE_KEYS.settings);
+  const rawSyncSettings = pickSyncSettings(data[STORAGE_KEYS.settings] || {});
+  const storedSyncSettings = {
+    ...DEFAULT_SYNC_SETTINGS,
+    ...pickSyncSettings(sanitizeSettings(rawSyncSettings)),
   };
 
-  await chrome.storage.local.set({ [STORAGE_KEYS.settings]: updated });
-  await broadcastState();
-  return updated;
+  if (JSON.stringify(rawSyncSettings) !== JSON.stringify(storedSyncSettings)) {
+    await SETTINGS_STORAGE.set({ [STORAGE_KEYS.settings]: storedSyncSettings });
+  }
+
+  return storedSyncSettings;
+}
+
+async function getStoredSyncSettings() {
+  const data = await SETTINGS_STORAGE.get(STORAGE_KEYS.settings);
+  return {
+    ...DEFAULT_SYNC_SETTINGS,
+    ...pickSyncSettings(sanitizeSettings(data[STORAGE_KEYS.settings] || {})),
+  };
+}
+
+function pickSyncSettings(settings) {
+  const syncSettings = { ...settings };
+  delete syncSettings.bookmarkFolderId;
+  return syncSettings;
+}
+
+function pickLocalSettings(settings) {
+  const localSettings = {};
+
+  if (Object.hasOwn(settings, "bookmarkFolderId")) {
+    localSettings.bookmarkFolderId = settings.bookmarkFolderId;
+  }
+
+  return localSettings;
 }
 
 function sanitizeSettings(nextSettings = {}) {
