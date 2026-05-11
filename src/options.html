@@ -113,25 +113,6 @@
       </section>
 
       <section class="card">
-        <h2>Preferiti Chrome</h2>
-        <div class="row">
-          <div>
-            <label for="bookmarkFolderId">Cartella preferiti</label>
-            <select id="bookmarkFolderId"></select>
-          </div>
-          <div>
-            <label for="bookmarkFolderTitle">Nuova cartella opzionale</label>
-            <input id="bookmarkFolderTitle" type="text" placeholder="Link Manager">
-          </div>
-          <div>
-            <label>&nbsp;</label>
-            <button id="ensureFolderButton" type="button">Crea/Trova cartella</button>
-          </div>
-        </div>
-        <p>Seleziona una cartella esistente dalla lista, oppure lascia vuoto e usa il nome per crearne o ritrovarne una sulla barra preferiti.</p>
-      </section>
-
-      <section class="card">
         <h2>Importa Da Preferiti</h2>
         <div class="row">
           <div>
@@ -143,7 +124,32 @@
             <button id="importFolderButton" type="button">Importa link da cartella</button>
           </div>
         </div>
-        <p>Importa nel database locale tutti i link della cartella selezionata, comprese le sottocartelle.</p>
+        <div class="row">
+          <label><input id="importAsSeen" type="checkbox"> Importa come gia visti</label>
+          <label><input id="importAsFavorite" type="checkbox"> Importa come favoriti</label>
+        </div>
+        <p>Importa nel database locale tutti i link della cartella selezionata, comprese le sottocartelle, assegnando opzionalmente gli stati interni selezionati.</p>
+      </section>
+
+      <section class="card">
+        <h2>Barra e Navigazione</h2>
+        <div class="row">
+          <label><input id="skipSeenInNavigation" type="checkbox"> Ignora i link gia visti in avanti, indietro e casuale</label>
+          <label><input id="skipFavoriteInNavigation" type="checkbox"> Ignora i link favoriti in avanti, indietro e casuale</label>
+        </div>
+        <div>
+          <label for="barVisibilityMode">Visibilita barra</label>
+          <select id="barVisibilityMode">
+            <option value="always">Mostra sempre</option>
+            <option value="whitelist">Mostra solo su questi siti</option>
+            <option value="blacklist">Non mostrare in questi siti</option>
+          </select>
+        </div>
+        <div>
+          <label for="barVisibilitySites">Siti per whitelist / blacklist</label>
+          <textarea id="barVisibilitySites" spellcheck="false" placeholder="example.com&#10;*.example.com"></textarea>
+        </div>
+        <p>Una riga per sito. Sono supportati host esatti come <code>example.com</code> e wildcard come <code>*.example.com</code>.</p>
       </section>
 
       <section class="card">
@@ -175,6 +181,16 @@
           <div>
             <label>Ultima sync</label>
             <div id="lastSyncAt">Mai</div>
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label>Stato coda sync</label>
+            <div id="syncQueueStatus">Nessuna modifica in coda</div>
+          </div>
+          <div>
+            <label>Prossimo flush</label>
+            <div id="nextFlushAt">Non pianificato</div>
           </div>
         </div>
         <div class="row">

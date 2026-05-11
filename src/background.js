@@ -13,13 +13,23 @@ const STORAGE_KEYS = {
 const SETTINGS_STORAGE = chrome.storage.sync;
 const LOCAL_SETTINGS_STORAGE = chrome.storage.local;
 const SUPABASE_PAGE_SIZE = 1000;
+const SYNC_FLUSH_DEBOUNCE_MS = 15000;
+const SYNC_PERIODIC_FLUSH_MINUTES = 2;
+const SYNC_FLUSH_ALARM = "pending-sync-flush";
+const SYNC_PERIODIC_ALARM = "periodic-sync-flush";
 
 const CONTEXT_MENU_ID = "save-link-from-context-menu";
+let pendingSyncFlushPromise = null;
+let isPendingSyncFlushRunning = false;
 
 const DEFAULT_SETTINGS = {
   captureWithShift: true,
   captureAllClicks: false,
   openLinksInNewTab: true,
+  skipSeenInNavigation: false,
+  skipFavoriteInNavigation: false,
+  barVisibilityMode: "always",
+  barVisibilitySites: [],
   bookmarkFolderId: null,
   bookmarkFolderTitle: "Link Manager",
   siteRules: {},
@@ -29,6 +39,10 @@ const DEFAULT_SYNC_SETTINGS = {
   captureWithShift: DEFAULT_SETTINGS.captureWithShift,
   captureAllClicks: DEFAULT_SETTINGS.captureAllClicks,
   openLinksInNewTab: DEFAULT_SETTINGS.openLinksInNewTab,
+  skipSeenInNavigation: DEFAULT_SETTINGS.skipSeenInNavigation,
+  skipFavoriteInNavigation: DEFAULT_SETTINGS.skipFavoriteInNavigation,
+  barVisibilityMode: DEFAULT_SETTINGS.barVisibilityMode,
+  barVisibilitySites: DEFAULT_SETTINGS.barVisibilitySites,
   bookmarkFolderTitle: DEFAULT_SETTINGS.bookmarkFolderTitle,
   siteRules: DEFAULT_SETTINGS.siteRules,
 };
@@ -37,11 +51,21 @@ chrome.runtime.onInstalled.addListener(async () => {
   await initializeSettingsStorage();
 
   await ensureContextMenu();
+  await initializeSyncScheduler();
 });
 
 chrome.runtime.onStartup.addListener(() => {
   void initializeSettingsStorage();
   void ensureContextMenu();
+  void initializeSyncScheduler();
+});
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (![SYNC_FLUSH_ALARM, SYNC_PERIODIC_ALARM].includes(alarm?.name)) {
+    return;
+  }
+
+  void runScheduledPendingSyncFlush();
 });
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
@@ -74,9 +98,13 @@ async function handleMessage(message, sender) {
     case "list-bookmark-folders":
       return listBookmarkFolders();
     case "import-bookmark-folder":
-      return importBookmarkFolder(message.payload?.folderId);
+      return importBookmarkFolder(message.payload?.folderId, message.payload);
     case "bookmark-link":
       return bookmarkLink(message.payload);
+    case "toggle-seen":
+      return toggleEntrySeen(message.payload?.id);
+    case "toggle-favorite":
+      return toggleEntryFavorite(message.payload?.id);
     case "save-link":
       return saveLink(message.payload, sender);
     case "save-open-tabs":
@@ -144,10 +172,68 @@ async function handleContextMenuSave(info, tab) {
   }
 }
 
+async function initializeSyncScheduler() {
+  await chrome.alarms.create(SYNC_PERIODIC_ALARM, {
+    periodInMinutes: SYNC_PERIODIC_FLUSH_MINUTES,
+  });
+
+  if (await hasPendingSyncChanges()) {
+    await schedulePendingSyncFlush();
+  }
+}
+
+async function schedulePendingSyncFlush() {
+  await chrome.alarms.create(SYNC_FLUSH_ALARM, {
+    when: Date.now() + SYNC_FLUSH_DEBOUNCE_MS,
+  });
+}
+
+async function hasPendingSyncChanges() {
+  const pendingSync = await getPendingSync();
+  return Boolean(
+    Object.keys(pendingSync.upserts || {}).length ||
+    Object.keys(pendingSync.deletes || {}).length,
+  );
+}
+
+async function runScheduledPendingSyncFlush() {
+  if (pendingSyncFlushPromise) {
+    return pendingSyncFlushPromise;
+  }
+
+  pendingSyncFlushPromise = (async () => {
+    if (!(await hasPendingSyncChanges())) {
+      return false;
+    }
+
+    const session = await ensureValidAuthSession();
+    if (!session?.user?.id) {
+      return false;
+    }
+
+    isPendingSyncFlushRunning = true;
+    await broadcastState();
+    await flushPendingSync(session);
+    isPendingSyncFlushRunning = false;
+    await broadcastState();
+    return true;
+  })()
+    .catch((error) => {
+      isPendingSyncFlushRunning = false;
+      throw error;
+    })
+    .finally(() => {
+      isPendingSyncFlushRunning = false;
+      pendingSyncFlushPromise = null;
+    });
+
+  return pendingSyncFlushPromise;
+}
+
 function formatSaveStatusMessage(status) {
   const feedback = {
     duplicate: "Link gia presente",
-    bookmarked: "Link gia nei preferiti",
+    updated: "Stato link aggiornato",
     saved: "Link salvato",
   };
 
@@ -170,12 +256,32 @@ async function sendToastToTab(tabId, text, isError = false) {
 }
 
 async function getState() {
-  const [entries, settings, auth] = await Promise.all([
+  const [entries, settings, auth, sync] = await Promise.all([
     getEntries(),
     getSettings(),
     getAuthState(),
+    getSyncStatus(),
   ]);
-  return { entries, settings, auth };
+  return { entries, settings, auth, sync };
+}
+
+async function getSyncStatus() {
+  const [pendingSync, flushAlarm] = await Promise.all([
+    getPendingSync(),
+    chrome.alarms.get(SYNC_FLUSH_ALARM),
+  ]);
+
+  const upsertCount = Object.keys(pendingSync.upserts || {}).length;
+  const deleteCount = Object.keys(pendingSync.deletes || {}).length;
+
+  return {
+    pendingUpserts: upsertCount,
+    pendingDeletes: deleteCount,
+    pendingCount: upsertCount + deleteCount,
+    isFlushScheduled: Boolean(flushAlarm),
+    isSyncing: isPendingSyncFlushRunning,
+    nextFlushAt: flushAlarm?.scheduledTime || null,
+  };
 }
 
 async function getEntries() {
@@ -187,7 +293,7 @@ async function setEntries(entries) {
   await chrome.storage.local.set({
     [STORAGE_KEYS.entries]: normalizeEntries(entries),
   });
-  await broadcastState();
+  void broadcastState();
 }
 
 async function getSettings() {
@@ -264,13 +370,6 @@ async function setAuthSession(session) {
   await broadcastState();
 }
 
-async function clearAuthSession() {
-  await LOCAL_SETTINGS_STORAGE.remove(STORAGE_KEYS.authSession);
-  await LOCAL_SETTINGS_STORAGE.remove(STORAGE_KEYS.lastSyncAt);
-  await LOCAL_SETTINGS_STORAGE.remove(STORAGE_KEYS.syncUserId);
-  await broadcastState();
-}
-
 async function getAuthState() {
   const [session, lastSyncAt] = await Promise.all([
     getAuthSession(),
@@ -294,7 +393,6 @@ async function getLastSyncAt() {
 async function setLastSyncAt(value) {
   await LOCAL_SETTINGS_STORAGE.set({ [STORAGE_KEYS.lastSyncAt]: value });
 }
-
 async function getSyncUserId() {
   const data = await LOCAL_SETTINGS_STORAGE.get(STORAGE_KEYS.syncUserId);
   return data[STORAGE_KEYS.syncUserId] || null;
@@ -359,7 +457,7 @@ async function sendMagicLink(email) {
     body: JSON.stringify({
       email: trimmedEmail,
       create_user: true,
-      email_redirect_to: chrome.runtime.getURL("src/auth-callback.html"),
+      redirect_to: chrome.runtime.getURL("src/auth-callback.html"),
     }),
   });
 
@@ -515,7 +613,7 @@ async function fetchRemoteLinks(session, changedAfter = null) {
   while (true) {
     const query = new URLSearchParams({
       select:
-        "id,url,normalized_url,title,page_url,created_at,updated_at,deleted_at",
+        "id,url,normalized_url,title,page_url,created_at,updated_at,deleted_at,is_seen,seen_at,is_favorite,favorited_at",
       order: "updated_at.desc",
       limit: String(SUPABASE_PAGE_SIZE),
       offset: String(offset),
@@ -558,6 +656,10 @@ async function upsertLinksToSupabase(entries, session) {
     page_url: entry.pageUrl || null,
     created_at: entry.createdAt,
     updated_at: entry.updatedAt,
+    is_seen: Boolean(entry.isSeen),
+    seen_at: entry.seenAt || null,
+    is_favorite: Boolean(entry.isFavorite),
+    favorited_at: entry.favoritedAt || null,
     deleted_at: null,
   }));
 
@@ -578,23 +680,18 @@ async function upsertLinksToSupabase(entries, session) {
 
 async function syncCreatedEntries(entries) {
   await queueEntriesForUpsert(entries);
-  const session = await ensureValidAuthSession();
-  if (!session?.user?.id) {
-    return;
-  }
-
-  await flushPendingSync(session);
+  await schedulePendingSyncFlush();
   await broadcastState();
 }
 
 async function markRemoteLinkDeleted(entry) {
   await queueEntryDelete(entry);
-  const session = await ensureValidAuthSession();
-  if (!session?.accessToken || !entry?.normalizedUrl) {
+  if (!entry?.normalizedUrl) {
     return;
   }
 
-  await flushPendingSync(session);
+  await schedulePendingSyncFlush();
+  await broadcastState();
 }
 
 async function flushPendingSync(session) {
@@ -628,7 +725,6 @@ async function resetLocalSyncCache() {
 }
 
 async function patchRemoteLinkDeleted(entry, session) {
-
   const response = await fetchSupabase(
     `/rest/v1/links?normalized_url=eq.${encodeURIComponent(entry.normalizedUrl)}`,
     {
@@ -664,6 +760,10 @@ function mergeEntriesForSync(localEntries, remoteLinks) {
       pageUrl: remoteLink.page_url,
       createdAt: remoteLink.created_at,
       updatedAt: remoteLink.updated_at || remoteLink.created_at,
+      isSeen: Boolean(remoteLink.is_seen),
+      seenAt: remoteLink.seen_at || null,
+      isFavorite: Boolean(remoteLink.is_favorite),
+      favoritedAt: remoteLink.favorited_at || null,
     });
   }
 
@@ -679,6 +779,18 @@ function normalizeEntries(entries) {
     ...entry,
     createdAt: entry.createdAt || new Date().toISOString(),
     updatedAt: entry.updatedAt || entry.createdAt || new Date().toISOString(),
+    isSeen: Boolean(entry.isSeen),
+    seenAt:
+      entry.seenAt ||
+      (entry.isSeen
+        ? entry.updatedAt || entry.createdAt || new Date().toISOString()
+        : null),
+    isFavorite: Boolean(entry.isFavorite),
+    favoritedAt:
+      entry.favoritedAt ||
+      (entry.isFavorite
+        ? entry.updatedAt || entry.createdAt || new Date().toISOString()
+        : null),
   }));
 }
 
@@ -691,7 +803,59 @@ function serializePendingUpsert(entry) {
     pageUrl: entry.pageUrl || null,
     createdAt: entry.createdAt,
     updatedAt: entry.updatedAt || entry.createdAt,
+    isSeen: Boolean(entry.isSeen),
+    seenAt: entry.seenAt || null,
+    isFavorite: Boolean(entry.isFavorite),
+    favoritedAt: entry.favoritedAt || null,
   };
+}
+
+function createEntryFromLink(link, normalizedUrl) {
+  const now = new Date().toISOString();
+  return normalizeEntries([
+    {
+      id: crypto.randomUUID(),
+      title: link.title?.trim() || link.text?.trim() || normalizedUrl,
+      url: link.url,
+      normalizedUrl,
+      pageUrl: link.pageUrl || null,
+      createdAt: now,
+      updatedAt: now,
+      isSeen: Boolean(link.isSeen),
+      seenAt: link.seenAt || null,
+      isFavorite: Boolean(link.isFavorite),
+      favoritedAt: link.favoritedAt || null,
+    },
+  ])[0];
+}
+
+function mergeEntryWithLink(existingEntry, link) {
+  const current = normalizeEntries([existingEntry])[0];
+  let nextEntry = current;
+  let changed = false;
+  const now = new Date().toISOString();
+
+  if (link.isSeen && !current.isSeen) {
+    nextEntry = {
+      ...nextEntry,
+      isSeen: true,
+      seenAt: link.seenAt || now,
+      updatedAt: now,
+    };
+    changed = true;
+  }
+
+  if (link.isFavorite && !nextEntry.isFavorite) {
+    nextEntry = {
+      ...nextEntry,
+      isFavorite: true,
+      favoritedAt: link.favoritedAt || now,
+      updatedAt: now,
+    };
+    changed = true;
+  }
+
+  return changed ? normalizeEntries([nextEntry])[0] : current;
 }
 
 function fetchSupabase(path, options = {}, skipContentType = false) {
@@ -765,6 +929,41 @@ function sanitizeSettings(nextSettings = {}) {
     sanitized.openLinksInNewTab = Boolean(nextSettings.openLinksInNewTab);
   }
 
+  if (Object.hasOwn(nextSettings, "skipSeenInNavigation")) {
+    sanitized.skipSeenInNavigation = Boolean(nextSettings.skipSeenInNavigation);
+  }
+
+  if (Object.hasOwn(nextSettings, "skipFavoriteInNavigation")) {
+    sanitized.skipFavoriteInNavigation = Boolean(
+      nextSettings.skipFavoriteInNavigation,
+    );
+  }
+
+  if (Object.hasOwn(nextSettings, "barVisibilityMode")) {
+    sanitized.barVisibilityMode = ["always", "whitelist", "blacklist"].includes(
+      nextSettings.barVisibilityMode,
+    )
+      ? nextSettings.barVisibilityMode
+      : DEFAULT_SETTINGS.barVisibilityMode;
+  }
+
+  if (Object.hasOwn(nextSettings, "barVisibilitySites")) {
+    sanitized.barVisibilitySites = [
+      ...new Set(
+        (Array.isArray(nextSettings.barVisibilitySites)
+          ? nextSettings.barVisibilitySites
+          : []
+        )
+          .map((site) =>
+            String(site || "")
+              .trim()
+              .toLowerCase(),
+          )
+          .filter(Boolean),
+      ),
+    ];
+  }
+
   if (Object.hasOwn(nextSettings, "bookmarkFolderId")) {
     sanitized.bookmarkFolderId = nextSettings.bookmarkFolderId || null;
   }
@@ -826,13 +1025,13 @@ async function saveOpenTabs() {
 async function saveLinks(links) {
   const entries = await getEntries();
   const settings = await getSettings();
-  const knownUrls = new Set(entries.map((entry) => entry.normalizedUrl));
-  const bookmarkUrls = settings.bookmarkFolderId
-    ? await getBookmarkUrlSet(settings.bookmarkFolderId, settings.siteRules)
-    : new Set();
+  const entriesByUrl = new Map(
+    entries.map((entry) => [entry.normalizedUrl, entry]),
+  );
+  const nextEntries = [...entries];
   const createdEntries = [];
+  const updatedEntries = [];
   let duplicateCount = 0;
-  let bookmarkedCount = 0;
 
   for (const link of links) {
     if (!link?.url) {
@@ -840,34 +1039,37 @@ async function saveLinks(links) {
     }
 
     const normalizedUrl = normalizeUrl(link.url, settings.siteRules);
+    const existingEntry = entriesByUrl.get(normalizedUrl) || null;
 
-    if (knownUrls.has(normalizedUrl)) {
-      duplicateCount += 1;
+    if (existingEntry) {
+      const nextEntry = mergeEntryWithLink(existingEntry, link);
+      if (nextEntry.updatedAt !== existingEntry.updatedAt) {
+        const entryIndex = nextEntries.findIndex(
+          (entry) => entry.id === existingEntry.id,
+        );
+        if (entryIndex !== -1) {
+          nextEntries[entryIndex] = nextEntry;
+        }
+        entriesByUrl.set(normalizedUrl, nextEntry);
+        updatedEntries.push(nextEntry);
+      } else {
+        duplicateCount += 1;
+      }
       continue;
     }
 
-    if (bookmarkUrls.has(normalizedUrl)) {
-      bookmarkedCount += 1;
-      continue;
-    }
+    const entry = createEntryFromLink(link, normalizedUrl);
 
-    const entry = {
-      id: crypto.randomUUID(),
-      title: link.title?.trim() || link.text?.trim() || normalizedUrl,
-      url: link.url,
-      normalizedUrl,
-      pageUrl: link.pageUrl || null,
-      createdAt: new Date().toISOString(),
-    };
-
-    knownUrls.add(normalizedUrl);
-    entries.unshift(entry);
+    entriesByUrl.set(normalizedUrl, entry);
+    nextEntries.unshift(entry);
     createdEntries.push(entry);
   }
 
-  if (createdEntries.length) {
-    await setEntries(entries);
-    void syncCreatedEntries(createdEntries).catch(() => undefined);
+  if (createdEntries.length || updatedEntries.length) {
+    await setEntries(nextEntries);
+    void syncCreatedEntries([...createdEntries, ...updatedEntries]).catch(
+      () => undefined,
+    );
   }
 
   if (links.length === 1) {
@@ -878,22 +1080,25 @@ async function saveLinks(links) {
       };
     }
 
-    if (duplicateCount) {
-      return { status: "duplicate" };
+    if (updatedEntries.length) {
+      return {
+        status: "updated",
+        entry: updatedEntries[0],
+      };
     }
 
-    if (bookmarkedCount) {
-      return { status: "bookmarked" };
+    if (duplicateCount) {
+      return { status: "duplicate" };
     }
 
     throw new Error("Missing URL");
   }
 
   return {
-    status: createdEntries.length ? "saved" : "noop",
+    status: createdEntries.length || updatedEntries.length ? "saved" : "noop",
     savedCount: createdEntries.length,
+    updatedCount: updatedEntries.length,
     duplicateCount,
-    bookmarkedCount,
     totalCount: links.length,
   };
 }
@@ -904,6 +1109,8 @@ async function inspectLink(url) {
       canSave: false,
       savedEntry: null,
       isBookmarked: false,
+      isFavorite: false,
+      isSeen: false,
     };
   }
 
@@ -912,23 +1119,16 @@ async function inspectLink(url) {
   const normalizedUrl = normalizeUrl(url, settings.siteRules);
   const savedEntry =
     entries.find((entry) => entry.normalizedUrl === normalizedUrl) || null;
-  let isBookmarked = false;
-
-  if (settings.bookmarkFolderId) {
-    try {
-      isBookmarked = Boolean(
-        await findBookmarkInFolder(settings.bookmarkFolderId, normalizedUrl),
-      );
-    } catch {
-      isBookmarked = false;
-    }
-  }
+  const isFavorite = Boolean(savedEntry?.isFavorite);
+  const isSeen = Boolean(savedEntry?.isSeen);
 
   return {
     canSave: true,
     normalizedUrl,
     savedEntry,
-    isBookmarked,
+    isBookmarked: isFavorite,
+    isFavorite,
+    isSeen,
   };
 }
 
@@ -938,31 +1138,62 @@ async function bookmarkLink(payload) {
     throw new Error("Missing URL");
   }
 
+  const entries = await getEntries();
   const settings = await getSettings();
   const normalizedUrl = normalizeUrl(url, settings.siteRules);
-  const folderId = await ensureBookmarkFolder();
-  const existingBookmark = await findBookmarkInFolder(folderId, normalizedUrl);
-
-  if (!existingBookmark) {
-    await chrome.bookmarks.create({
-      parentId: folderId,
-      title: payload?.title?.trim() || url,
-      url,
-    });
-  }
-
-  const entries = await getEntries();
   const savedEntry =
     entries.find((entry) => entry.normalizedUrl === normalizedUrl) || null;
+  const now = new Date().toISOString();
 
   if (savedEntry) {
-    await removeLink(savedEntry.id);
+    const nextEntry = savedEntry.isFavorite
+      ? savedEntry
+      : {
+          ...savedEntry,
+          isFavorite: true,
+          favoritedAt: savedEntry.favoritedAt || now,
+          updatedAt: now,
+        };
+
+    if (!savedEntry.isFavorite) {
+      const nextEntries = entries.map((entry) =>
+        entry.id === savedEntry.id ? nextEntry : entry,
+      );
+      await setEntries(nextEntries);
+      void syncCreatedEntries([nextEntry]).catch(() => undefined);
+    }
+
+    return {
+      bookmarked: true,
+      favorited: true,
+      alreadyBookmarked: savedEntry.isFavorite,
+      alreadyFavorite: savedEntry.isFavorite,
+      entry: nextEntry,
+    };
   }
+
+  const entry = createEntryFromLink(
+    {
+      url,
+      title: payload?.title,
+      text: "",
+      pageUrl: payload?.pageUrl || url,
+      isFavorite: true,
+      favoritedAt: now,
+    },
+    normalizedUrl,
+  );
+  entry.updatedAt = now;
+
+  await setEntries([entry, ...entries]);
+  void syncCreatedEntries([entry]).catch(() => undefined);
 
   return {
     bookmarked: true,
-    alreadyBookmarked: Boolean(existingBookmark),
-    removedSavedEntry: Boolean(savedEntry),
+    favorited: true,
+    alreadyBookmarked: false,
+    alreadyFavorite: false,
+    entry,
   };
 }
 
@@ -1020,14 +1251,30 @@ async function openLink(
 async function openRandomLink(sender, context = {}) {
   const entries = await getEntries();
   const settings = await getSettings();
+  const navigationEntries = filterNavigationEntries(entries, settings);
 
-  if (!entries.length) {
+  if (!navigationEntries.length) {
     throw new Error("No saved links");
   }
 
-  const entry = entries[Math.floor(Math.random() * entries.length)];
+  const entry =
+    navigationEntries[Math.floor(Math.random() * navigationEntries.length)];
   await openUrl(entry.url, true, settings.openLinksInNewTab, sender, context);
   return entry;
+}
+
+function filterNavigationEntries(entries, settings = {}) {
+  return normalizeEntries(entries).filter((entry) => {
+    if (settings.skipSeenInNavigation && entry.isSeen) {
+      return false;
+    }
+
+    if (settings.skipFavoriteInNavigation && entry.isFavorite) {
+      return false;
+    }
+
+    return true;
+  });
 }
 
 async function openUrl(url, active, openInNewTab, sender, context = {}) {
@@ -1064,24 +1311,64 @@ async function promoteLink(id) {
     throw new Error("Link not found");
   }
 
-  const folderId = await ensureBookmarkFolder();
-  const existingBookmark = await findBookmarkInFolder(
-    folderId,
-    entry.normalizedUrl,
-  );
+  const now = new Date().toISOString();
+  const nextEntry = entry.isFavorite
+    ? entry
+    : {
+        ...entry,
+        isFavorite: true,
+        favoritedAt: entry.favoritedAt || now,
+        updatedAt: now,
+      };
 
-  if (!existingBookmark) {
-    await chrome.bookmarks.create({
-      parentId: folderId,
-      title: entry.title,
-      url: entry.url,
-    });
+  if (!entry.isFavorite) {
+    const nextEntries = entries.map((item) =>
+      item.id === id ? nextEntry : item,
+    );
+    await setEntries(nextEntries);
+    void syncCreatedEntries([nextEntry]).catch(() => undefined);
   }
 
-  await removeLink(id);
   return {
     promoted: true,
-    alreadyBookmarked: Boolean(existingBookmark),
+    favorited: true,
+    alreadyBookmarked: entry.isFavorite,
+    alreadyFavorite: entry.isFavorite,
+    entry: nextEntry,
+  };
+}
+
+async function toggleEntrySeen(id) {
+  return toggleEntryFlag(id, "isSeen", "seenAt");
+}
+
+async function toggleEntryFavorite(id) {
+  return toggleEntryFlag(id, "isFavorite", "favoritedAt");
+}
+
+async function toggleEntryFlag(id, flagKey, timestampKey) {
+  const entries = await getEntries();
+  const entry = entries.find((item) => item.id === id);
+
+  if (!entry) {
+    throw new Error("Link not found");
+  }
+
+  const nextFlagValue = !entry[flagKey];
+  const now = new Date().toISOString();
+  const nextEntry = {
+    ...entry,
+    [flagKey]: nextFlagValue,
+    [timestampKey]: nextFlagValue ? entry[timestampKey] || now : null,
+    updatedAt: now,
+  };
+
+  await setEntries(entries.map((item) => (item.id === id ? nextEntry : item)));
+  void syncCreatedEntries([nextEntry]).catch(() => undefined);
+
+  return {
+    entry: nextEntry,
+    enabled: nextFlagValue,
   };
 }
 
@@ -1178,7 +1465,7 @@ async function listBookmarkFolders() {
   return folders;
 }
 
-async function importBookmarkFolder(folderId) {
+async function importBookmarkFolder(folderId, options = {}) {
   if (!folderId) {
     throw new Error("Missing folder id");
   }
@@ -1189,7 +1476,7 @@ async function importBookmarkFolder(folderId) {
     throw new Error("Bookmark folder not found");
   }
 
-  return saveLinks(collectBookmarkLinks(root));
+  return saveLinks(collectBookmarkLinks(root, options));
 }
 
 function collectBookmarkFolders(node, folders, parentPath) {
@@ -1211,9 +1498,12 @@ function collectBookmarkFolders(node, folders, parentPath) {
   }
 }
 
-function collectBookmarkLinks(node) {
+function collectBookmarkLinks(node, options = {}) {
   const links = [];
   const queue = [node];
+  const markAsSeen = Boolean(options.importAsSeen);
+  const markAsFavorite = Boolean(options.importAsFavorite);
+  const importedAt = new Date().toISOString();
 
   while (queue.length) {
     const current = queue.shift();
@@ -1227,6 +1517,10 @@ function collectBookmarkLinks(node) {
         title: current.title || current.url,
         text: "",
         pageUrl: null,
+        isSeen: markAsSeen,
+        seenAt: markAsSeen ? importedAt : null,
+        isFavorite: markAsFavorite,
+        favoritedAt: markAsFavorite ? importedAt : null,
       });
       continue;
     }

@@ -1,7 +1,10 @@
 const searchInput = document.getElementById("searchInput");
+const filterSeenButton = document.getElementById("filterSeenButton");
+const filterFavoriteButton = document.getElementById("filterFavoriteButton");
 const resultsNode = document.getElementById("results");
 const countNode = document.getElementById("count");
 const statusNode = document.getElementById("status");
+const syncSummaryNode = document.getElementById("syncSummary");
 const quickActionsNode = document.getElementById("quickActions");
 
 let popupState = {
@@ -11,12 +14,24 @@ let popupState = {
 let activeTab = null;
 let currentPageState = createEmptyCurrentPageState();
 let searchQuery = "";
+let filterSeenOnly = false;
+let filterFavoriteOnly = false;
 let pendingAction = null;
 
 init();
 
 searchInput.addEventListener("input", (event) => {
   searchQuery = event.target.value;
+  render();
+});
+
+filterSeenButton.addEventListener("click", () => {
+  filterSeenOnly = !filterSeenOnly;
+  render();
+});
+
+filterFavoriteButton.addEventListener("click", () => {
+  filterFavoriteOnly = !filterFavoriteOnly;
   render();
 });
 
@@ -38,11 +53,16 @@ async function init() {
 
 function render() {
   countNode.textContent = String(popupState.entries.length);
+  renderSyncSummary();
+  renderFilterState();
 
   renderQuickActions();
 
   const filteredEntries = filterEntries(searchQuery, popupState.entries);
-  resultsNode.innerHTML = !searchQuery.trim()
+  const hasActiveSearch = Boolean(
+    searchQuery.trim() || filterSeenOnly || filterFavoriteOnly,
+  );
+  resultsNode.innerHTML = !hasActiveSearch
     ? '<li class="empty">Scrivi nella ricerca per trovare un link salvato</li>'
     : filteredEntries.length
       ? filteredEntries
@@ -54,8 +74,11 @@ function render() {
                   <span class="url">${escapeHtml(entry.url)}</span>
                 </button>
                 <div class="actions">
-                  <button class="icon-button" data-action="promote" data-id="${escapeHtml(entry.id)}" title="Aggiungi ai preferiti" aria-label="Aggiungi ai preferiti">
-                    ${isPending("promote", entry.id) ? spinnerMarkup() : iconMarkup("star")}
+                  <button class="icon-button${getToggleStateClass("seen", entry.isSeen)}" data-action="toggle-seen" data-id="${escapeHtml(entry.id)}" title="${entry.isSeen ? "Togli visto" : "Segna visto"}" aria-label="${entry.isSeen ? "Togli visto" : "Segna visto"}">
+                    ${isPending("toggle-seen", entry.id) ? spinnerMarkup() : iconMarkup(entry.isSeen ? "check-badge" : "check")}
+                  </button>
+                  <button class="icon-button${getToggleStateClass("favorite", entry.isFavorite)}" data-action="toggle-favorite" data-id="${escapeHtml(entry.id)}" title="${entry.isFavorite ? "Togli favorito" : "Segna favorito"}" aria-label="${entry.isFavorite ? "Togli favorito" : "Segna favorito"}">
+                    ${isPending("toggle-favorite", entry.id) ? spinnerMarkup() : iconMarkup(entry.isFavorite ? "star-filled" : "star")}
                   </button>
                   <button class="icon-button" data-action="remove" data-id="${escapeHtml(entry.id)}" title="Rimuovi" aria-label="Rimuovi">
                     ${isPending("remove", entry.id) ? spinnerMarkup() : iconMarkup("trash")}
@@ -92,14 +115,42 @@ function render() {
               popupState.entries = popupState.entries.filter(
                 (entry) => entry.id !== id,
               );
+              syncCurrentPageStateFromEntries({ preserveSnapshot: true });
               setStatus("Link rimosso");
               break;
-            case "promote":
-              await sendMessage({ type: "promote-link", payload: { id } });
-              popupState.entries = popupState.entries.filter(
-                (entry) => entry.id !== id,
-              );
-              setStatus("Link spostato nei preferiti");
+            case "toggle-seen":
+              {
+                const result = await sendMessage({
+                  type: "toggle-seen",
+                  payload: { id },
+                });
+                if (result.entry) {
+                  replaceEntryInPopupState(result.entry);
+                }
+                syncCurrentPageStateFromEntries({ preserveSnapshot: true });
+                setStatus(
+                  result.enabled
+                    ? "Link segnato come visto"
+                    : "Link segnato come non visto",
+                );
+              }
+              break;
+            case "toggle-favorite":
+              {
+                const result = await sendMessage({
+                  type: "toggle-favorite",
+                  payload: { id },
+                });
+                if (result.entry) {
+                  replaceEntryInPopupState(result.entry);
+                }
+                syncCurrentPageStateFromEntries({ preserveSnapshot: true });
+                setStatus(
+                  result.enabled
+                    ? "Link aggiunto ai favoriti"
+                    : "Link rimosso dai favoriti",
+                );
+              }
               break;
             default:
               break;
@@ -111,12 +162,46 @@ function render() {
   });
 }
 
+function renderSyncSummary() {
+  const sync = popupState.sync || {};
+
+  if (sync.isSyncing) {
+    syncSummaryNode.textContent = "Sync in corso";
+    return;
+  }
+
+  if (sync.pendingCount) {
+    const nextFlush = sync.nextFlushAt
+      ? ` • flush ${formatDateTime(sync.nextFlushAt)}`
+      : "";
+    syncSummaryNode.textContent = `${sync.pendingCount} in coda${nextFlush}`;
+    return;
+  }
+
+  syncSummaryNode.textContent = "Nessuna modifica in coda";
+}
+
+function renderFilterState() {
+  filterSeenButton.classList.toggle("is-active", filterSeenOnly);
+  filterFavoriteButton.classList.toggle("is-active", filterFavoriteOnly);
+}
+
 function renderQuickActions() {
+  const navigableEntries = getNavigableEntries();
   const { previousEntry, nextEntry } = getCurrentEntryNavigation();
   const currentToggleAction = currentPageState.savedEntry
     ? "remove-current"
     : "save-current";
   const currentToggleIcon = currentPageState.savedEntry ? "trash" : "plus";
+  const currentPageExtraActions = currentPageState.savedEntry
+    ? `
+    <button class="icon-button" type="button" data-action="toggle-seen-current" title="${currentPageState.isSeen ? "Togli visto" : "Segna visto"}" aria-label="${currentPageState.isSeen ? "Togli visto" : "Segna visto"}" ${getDisabledAttrs(isAnyPending())}>
+      ${isPending("toggle-seen-current") ? spinnerMarkup() : iconMarkup("check")}
+    </button>
+    <button class="icon-button" type="button" data-action="toggle-favorite-current" title="${currentPageState.isFavorite ? "Togli favorito" : "Segna favorito"}" aria-label="${currentPageState.isFavorite ? "Togli favorito" : "Segna favorito"}" ${getDisabledAttrs(isAnyPending())}>
+      ${isPending("toggle-favorite-current") ? spinnerMarkup() : iconMarkup("star")}
+    </button>`
+    : "";
 
   quickActionsNode.innerHTML = `
     <button class="icon-button" type="button" data-action="prev-current" data-id="${escapeHtml(previousEntry?.id || "")}" title="Link precedente" aria-label="Link precedente" ${getDisabledAttrs(!previousEntry || isAnyPending())}>
@@ -125,13 +210,11 @@ function renderQuickActions() {
     <button class="icon-button" type="button" data-action="next-current" data-id="${escapeHtml(nextEntry?.id || "")}" title="Link successivo" aria-label="Link successivo" ${getDisabledAttrs(!nextEntry || isAnyPending())}>
       ${isPending("next-current") ? spinnerMarkup() : iconMarkup("chevron-right")}
     </button>
-    <button class="icon-button" type="button" data-action="${currentToggleAction}" title="Aggiungi o rimuovi pagina corrente" aria-label="Aggiungi o rimuovi pagina corrente" ${getDisabledAttrs(isAnyPending() || !currentPageState.canSave || (!currentPageState.savedEntry && currentPageState.isBookmarked))}>
+    <button class="icon-button" type="button" data-action="${currentToggleAction}" title="Aggiungi o rimuovi pagina corrente" aria-label="Aggiungi o rimuovi pagina corrente" ${getDisabledAttrs(isAnyPending() || !currentPageState.canSave)}>
       ${isPending(currentToggleAction) ? spinnerMarkup() : iconMarkup(currentToggleIcon)}
     </button>
-    <button class="icon-button" type="button" data-action="bookmark-current" title="Aggiungi pagina corrente ai preferiti" aria-label="Aggiungi pagina corrente ai preferiti" ${getDisabledAttrs(isAnyPending() || !currentPageState.canSave || currentPageState.isBookmarked)}>
-      ${isPending("bookmark-current") ? spinnerMarkup() : iconMarkup("star")}
-    </button>
-    <button class="icon-button" type="button" data-action="random" title="Apri link casuale" aria-label="Apri link casuale" ${getDisabledAttrs(isAnyPending())}>
+    ${currentPageExtraActions}
+    <button class="icon-button" type="button" data-action="random" title="Apri link casuale" aria-label="Apri link casuale" ${getDisabledAttrs(isAnyPending() || !navigableEntries.length)}>
       ${isPending("random") ? spinnerMarkup() : iconMarkup("shuffle")}
     </button>
   `;
@@ -183,8 +266,9 @@ function renderQuickActions() {
                     (entry) => entry.id !== result.entry.id,
                   ),
                 ];
+                currentPageState.normalizedUrl = result.entry.normalizedUrl;
               }
-              await refreshCurrentPageState();
+              syncCurrentPageStateFromEntries();
               break;
             }
             case "remove-current": {
@@ -201,7 +285,7 @@ function renderQuickActions() {
                 (entry) =>
                   entry.normalizedUrl !== currentPageState.normalizedUrl,
               );
-              await refreshCurrentPageState({ preserveSnapshot: true });
+              syncCurrentPageStateFromEntries({ preserveSnapshot: true });
               break;
             }
             case "bookmark-current": {
@@ -214,17 +298,55 @@ function renderQuickActions() {
               });
               setStatus(
                 result.alreadyBookmarked
-                  ? "Pagina gia nei preferiti"
-                  : "Pagina aggiunta ai preferiti",
+                  ? "Pagina gia tra i favoriti"
+                  : "Pagina aggiunta ai favoriti",
               );
-              popupState.entries = popupState.entries.filter(
-                (entry) =>
-                  entry.normalizedUrl !== currentPageState.normalizedUrl,
-              );
-              await refreshCurrentPageState({
-                preserveSnapshot: true,
-                forceBookmarked: true,
+              if (result.entry) {
+                popupState.entries = [
+                  result.entry,
+                  ...popupState.entries.filter(
+                    (entry) => entry.id !== result.entry.id,
+                  ),
+                ];
+                currentPageState.normalizedUrl = result.entry.normalizedUrl;
+              }
+              syncCurrentPageStateFromEntries({ preserveSnapshot: true });
+              break;
+            }
+            case "toggle-seen-current": {
+              if (!currentPageState.savedEntry) {
+                break;
+              }
+
+              const result = await sendMessage({
+                type: "toggle-seen",
+                payload: { id: currentPageState.savedEntry.id },
               });
+              replaceEntryInPopupState(result.entry);
+              syncCurrentPageStateFromEntries({ preserveSnapshot: true });
+              setStatus(
+                result.enabled
+                  ? "Pagina segnata come vista"
+                  : "Pagina segnata come non vista",
+              );
+              break;
+            }
+            case "toggle-favorite-current": {
+              if (!currentPageState.savedEntry) {
+                break;
+              }
+
+              const result = await sendMessage({
+                type: "toggle-favorite",
+                payload: { id: currentPageState.savedEntry.id },
+              });
+              replaceEntryInPopupState(result.entry);
+              syncCurrentPageStateFromEntries({ preserveSnapshot: true });
+              setStatus(
+                result.enabled
+                  ? "Pagina aggiunta ai favoriti"
+                  : "Pagina rimossa dai favoriti",
+              );
               break;
             }
             case "random":
@@ -278,7 +400,8 @@ function createEmptyCurrentPageState() {
     canSave: isSavableUrl(activeTab?.url || ""),
     normalizedUrl: null,
     savedEntry: null,
-    isBookmarked: false,
+    isFavorite: false,
+    isSeen: false,
     navigationSnapshot: null,
   };
 }
@@ -298,7 +421,6 @@ async function refreshCurrentPageState(options = {}) {
 
     currentPageState = {
       ...nextState,
-      isBookmarked: options.forceBookmarked ? true : nextState.isBookmarked,
       navigationSnapshot: nextState.savedEntry
         ? createNavigationSnapshot(nextState.savedEntry.id)
         : options.preserveSnapshot
@@ -310,8 +432,48 @@ async function refreshCurrentPageState(options = {}) {
   }
 }
 
+function syncCurrentPageStateFromEntries(options = {}) {
+  if (!isSavableUrl(activeTab?.url || "")) {
+    currentPageState = createEmptyCurrentPageState();
+    return;
+  }
+
+  const previousSnapshot = currentPageState.navigationSnapshot;
+  const normalizedUrl = currentPageState.normalizedUrl;
+  let savedEntry = null;
+
+  if (currentPageState.savedEntry?.id) {
+    savedEntry =
+      popupState.entries.find(
+        (entry) => entry.id === currentPageState.savedEntry.id,
+      ) || null;
+  }
+
+  if (!savedEntry && normalizedUrl) {
+    savedEntry =
+      popupState.entries.find(
+        (entry) => entry.normalizedUrl === normalizedUrl,
+      ) || null;
+  }
+
+  currentPageState = {
+    ...currentPageState,
+    canSave: true,
+    normalizedUrl: savedEntry?.normalizedUrl || normalizedUrl || null,
+    savedEntry,
+    isFavorite: Boolean(savedEntry?.isFavorite),
+    isSeen: Boolean(savedEntry?.isSeen),
+    navigationSnapshot: savedEntry
+      ? createNavigationSnapshot(savedEntry.id)
+      : options.preserveSnapshot
+        ? previousSnapshot
+        : null,
+  };
+}
+
 function createNavigationSnapshot(entryId) {
-  const currentIndex = popupState.entries.findIndex(
+  const navigableEntries = getNavigableEntries(entryId);
+  const currentIndex = navigableEntries.findIndex(
     (entry) => entry.id === entryId,
   );
   if (currentIndex === -1) {
@@ -319,27 +481,53 @@ function createNavigationSnapshot(entryId) {
   }
 
   return {
-    previousEntryId: popupState.entries[currentIndex + 1]?.id || null,
-    nextEntryId: popupState.entries[currentIndex - 1]?.id || null,
+    previousEntryId: navigableEntries[currentIndex + 1]?.id || null,
+    nextEntryId: navigableEntries[currentIndex - 1]?.id || null,
   };
 }
 
 function getCurrentEntryNavigation() {
+  const navigableEntries = getNavigableEntries(currentPageState.savedEntry?.id);
+
   if (!currentPageState.navigationSnapshot) {
     return { previousEntry: null, nextEntry: null };
   }
 
   return {
     previousEntry:
-      popupState.entries.find(
+      navigableEntries.find(
         (entry) =>
           entry.id === currentPageState.navigationSnapshot.previousEntryId,
       ) || null,
     nextEntry:
-      popupState.entries.find(
+      navigableEntries.find(
         (entry) => entry.id === currentPageState.navigationSnapshot.nextEntryId,
       ) || null,
   };
+}
+
+function getNavigableEntries(preservedEntryId = null) {
+  return popupState.entries.filter((entry) => {
+    if (preservedEntryId && entry.id === preservedEntryId) {
+      return true;
+    }
+
+    if (popupState.settings.skipSeenInNavigation && entry.isSeen) {
+      return false;
+    }
+
+    if (popupState.settings.skipFavoriteInNavigation && entry.isFavorite) {
+      return false;
+    }
+
+    return true;
+  });
+}
+
+function replaceEntryInPopupState(entry) {
+  popupState.entries = popupState.entries.map((item) =>
+    item.id === entry.id ? entry : item,
+  );
 }
 
 function isSavableUrl(url) {
@@ -353,25 +541,52 @@ function getDisabledAttrs(disabled) {
 function formatSaveFeedback(status) {
   const feedback = {
     duplicate: "Link gia presente",
-    bookmarked: "Link gia nei preferiti",
+    updated: "Link aggiornato",
     saved: "Link salvato",
   };
 
   return feedback[status] || "Operazione completata";
 }
 
-function filterEntries(query, entries) {
-  const normalizedQuery = query.trim().toLowerCase();
-  if (!normalizedQuery) {
-    return [];
+function getToggleStateClass(kind, isActive) {
+  if (!isActive) {
+    return "";
   }
 
+  return kind === "seen" ? " is-active-seen" : " is-active-favorite";
+}
+
+function formatDateTime(value) {
+  try {
+    return new Date(value).toLocaleTimeString("it-IT", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return String(value);
+  }
+}
+
+function filterEntries(query, entries) {
+  const normalizedQuery = query.trim().toLowerCase();
   return entries
-    .filter((entry) =>
-      [entry.title, entry.url, entry.pageUrl]
+    .filter((entry) => {
+      if (filterSeenOnly && entry.isSeen) {
+        return false;
+      }
+
+      if (filterFavoriteOnly && !entry.isFavorite) {
+        return false;
+      }
+
+      if (!normalizedQuery) {
+        return true;
+      }
+
+      return [entry.title, entry.url, entry.pageUrl]
         .filter(Boolean)
-        .some((value) => value.toLowerCase().includes(normalizedQuery)),
-    )
+        .some((value) => value.toLowerCase().includes(normalizedQuery));
+    })
     .slice(0, 40);
 }
 
@@ -382,9 +597,15 @@ function iconMarkup(name) {
     "chevron-right":
       '<span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m8.59 16.59 1.41 1.41 6-6-6-6-1.41 1.41L13.17 12z"/></svg></span>',
     plus: '<span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M11 5h2v14h-2zM5 11h14v2H5z"/></svg></span>',
+    check:
+      '<span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m9.55 18.02-5.03-5.03 1.41-1.41 3.62 3.61 8.52-8.51 1.41 1.41-9.93 9.93Z"/></svg></span>',
+    "check-badge":
+      '<span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2.75 4 5.7v5.86c0 4.84 3.18 9.35 8 10.69 4.82-1.34 8-5.85 8-10.69V5.7L12 2.75Zm3.57 7.98-4.34 4.34-2.8-2.79 1.41-1.42 1.39 1.39 2.93-2.93 1.41 1.41Z"/></svg></span>',
     shuffle:
       '<span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M16 3h5v5h-2V6.41l-4.29 4.3-1.42-1.42L17.59 5H16V3ZM4 7h3.59l9 9H20v-2h-2.59l-9-9H4V7Zm9.29 5.29 1.42 1.42L10.41 18H13v2H8v-5h2v1.59l3.29-3.3ZM19 19v-1.59l-2.29-2.3 1.42-1.42 2.87 2.88V14h2v5h-5Z"/></svg></span>',
     star: '<span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m12 17.27 6.18 3.73-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21 12 17.27Z"/></svg></span>',
+    "star-filled":
+      '<span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m12 2 2.81 6.63 7.19.61-5.46 4.73 1.64 7.03L12 17.27 5.82 21l1.64-7.03L2 9.24l7.19-.61L12 2Z"/></svg></span>',
     trash:
       '<span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 3h6l1 2h4v2H4V5h4l1-2Zm-1 6h2v8H8V9Zm6 0h2v8h-2V9ZM6 9h12l-1 11H7L6 9Z"/></svg></span>',
   };

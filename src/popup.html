@@ -86,6 +86,31 @@
       .toolbar {
         display: flex;
         gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .filters {
+        display: flex;
+        gap: 8px;
+        width: 100%;
+      }
+
+      .filter-chip {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 0;
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.08);
+        color: var(--ink);
+        border: 1px solid var(--line);
+      }
+
+      .filter-chip.is-active {
+        background: rgba(242, 187, 105, 0.18);
+        border-color: rgba(242, 187, 105, 0.4);
+        color: #ffd68b;
       }
 
       .search {
@@ -194,6 +219,16 @@
         background: var(--chip-strong);
       }
 
+      .icon-button.is-active-seen {
+        background: rgba(84, 214, 154, 0.22);
+        color: #b9f6da;
+      }
+
+      .icon-button.is-active-favorite {
+        background: rgba(242, 187, 105, 0.24);
+        color: #ffd68b;
+      }
+
       .empty {
         justify-content: center;
         color: var(--muted);
@@ -225,6 +260,12 @@
         font-size: 12px;
       }
 
+      .sync-summary {
+        min-height: 1.2em;
+        color: rgba(242, 187, 105, 0.92);
+        font-size: 12px;
+      }
+
       @keyframes spin {
         from { transform: rotate(0deg); }
         to { transform: rotate(360deg); }
@@ -247,8 +288,13 @@
             <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M10 4a6 6 0 1 0 3.87 10.58l4.27 4.28 1.42-1.42-4.28-4.27A6 6 0 0 0 10 4Zm0 2a4 4 0 1 1 0 8 4 4 0 0 1 0-8Z"/></svg></span>
             <input id="searchInput" type="search" placeholder="Cerca nei link salvati">
           </label>
+          <div class="filters">
+            <button id="filterSeenButton" class="filter-chip" type="button">Non visti</button>
+            <button id="filterFavoriteButton" class="filter-chip" type="button">Favoriti</button>
+          </div>
         </div>
         <ul id="results" class="list"></ul>
+        <div id="syncSummary" class="sync-summary" aria-live="polite"></div>
         <div id="status" class="status" aria-live="polite"></div>
       </section>
     </main>

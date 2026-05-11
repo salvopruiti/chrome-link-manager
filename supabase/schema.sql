@@ -17,10 +17,26 @@ create table if not exists public.links (
   normalized_url text not null,
   title text not null,
   page_url text,
+  is_seen boolean not null default false,
+  seen_at timestamptz,
+  is_favorite boolean not null default false,
+  favorited_at timestamptz,
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now()),
   deleted_at timestamptz
 );
+
+alter table public.links
+  add column if not exists is_seen boolean not null default false;
+
+alter table public.links
+  add column if not exists seen_at timestamptz;
+
+alter table public.links
+  add column if not exists is_favorite boolean not null default false;
+
+alter table public.links
+  add column if not exists favorited_at timestamptz;
 
 create unique index if not exists links_user_id_normalized_url_key
   on public.links (user_id, normalized_url);

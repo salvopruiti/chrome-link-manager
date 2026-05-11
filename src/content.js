@@ -7,7 +7,11 @@ let extensionState = {
   settings: {
     captureWithShift: true,
     captureAllClicks: false,
-    bookmarkFolderTitle: "Link Manager",
+    openLinksInNewTab: false,
+    skipSeenInNavigation: false,
+    skipFavoriteInNavigation: false,
+    barVisibilityMode: "always",
+    barVisibilitySites: [],
   },
 };
 
@@ -22,7 +26,8 @@ bootstrap();
 chrome.runtime.onMessage.addListener((message) => {
   if (message?.type === "state-updated") {
     extensionState = message.payload;
-    void refreshCurrentPageState({ preserveSnapshot: true }).then(renderBar);
+    syncCurrentPageStateFromEntries();
+    renderBar();
     return;
   }
 
@@ -80,6 +85,45 @@ function waitForBody(callback) {
   });
 }
 
+function shouldShowBarForCurrentSite(settings = {}) {
+  const hostname = window.location.hostname.toLowerCase();
+  const mode = settings.barVisibilityMode || "always";
+  const sites = settings.barVisibilitySites || [];
+
+  if (mode === "always") {
+    return true;
+  }
+
+  const matched = sites.some((pattern) =>
+    matchesHostnamePattern(hostname, pattern),
+  );
+  return mode === "whitelist" ? matched : !matched;
+}
+
+function matchesHostnamePattern(hostname, pattern) {
+  const normalizedPattern = String(pattern || "")
+    .trim()
+    .toLowerCase();
+  if (!normalizedPattern) {
+    return false;
+  }
+
+  if (normalizedPattern === hostname) {
+    return true;
+  }
+
+  if (!normalizedPattern.startsWith("*.")) {
+    return false;
+  }
+
+  const suffix = normalizedPattern.slice(2);
+  return Boolean(suffix) && hostname.endsWith(`.${suffix}`);
+}
+
+function removeBarRoot() {
+  document.getElementById(ROOT_ID)?.remove();
+}
+
 async function handleDocumentClick(event) {
   if (event.defaultPrevented || !shouldCaptureClick(event)) {
     return;
@@ -112,7 +156,7 @@ async function handleDocumentClick(event) {
 
     const feedback = {
       duplicate: "Link gia presente",
-      bookmarked: "Link gia nei preferiti",
+      updated: "Link aggiornato",
       saved: "Link salvato",
     };
 
@@ -146,7 +190,8 @@ function createEmptyCurrentPageState() {
   return {
     canSave: isSavableUrl(window.location.href),
     savedEntry: null,
-    isBookmarked: false,
+    isFavorite: false,
+    isSeen: false,
     navigationSnapshot: null,
   };
 }
@@ -184,6 +229,24 @@ async function refreshBarState() {
   renderBar();
 }
 
+function getNavigableEntries(preservedEntryId = null) {
+  return extensionState.entries.filter((entry) => {
+    if (preservedEntryId && entry.id === preservedEntryId) {
+      return true;
+    }
+
+    if (extensionState.settings.skipSeenInNavigation && entry.isSeen) {
+      return false;
+    }
+
+    if (extensionState.settings.skipFavoriteInNavigation && entry.isFavorite) {
+      return false;
+    }
+
+    return true;
+  });
+}
+
 function syncCurrentPageStateFromEntries() {
   if (!isSavableUrl(window.location.href)) {
     currentPageState = createEmptyCurrentPageState();
@@ -194,12 +257,22 @@ function syncCurrentPageStateFromEntries() {
   currentPageState = {
     ...currentPageState,
     canSave: true,
-    savedEntry:
-      extensionState.entries.find(
-        (entry) => entry.normalizedUrl === normalizedUrl,
-      ) || null,
+    savedEntry: null,
+    isFavorite: false,
+    isSeen: false,
     navigationSnapshot: currentPageState.navigationSnapshot,
   };
+
+  const savedEntry =
+    extensionState.entries.find(
+      (entry) => entry.normalizedUrl === normalizedUrl,
+    ) || null;
+
+  if (savedEntry) {
+    currentPageState.savedEntry = savedEntry;
+    currentPageState.isFavorite = Boolean(savedEntry.isFavorite);
+    currentPageState.isSeen = Boolean(savedEntry.isSeen);
+  }
 }
 
 function normalizeForCurrentSettings(url) {
@@ -225,10 +298,20 @@ function addEntryToLocalState(entry) {
   syncCurrentPageStateFromEntries();
 }
 
-function setCurrentPageBookmarked(isBookmarked) {
+function replaceEntryInLocalState(entry) {
+  extensionState = {
+    ...extensionState,
+    entries: extensionState.entries.map((item) =>
+      item.id === entry.id ? entry : item,
+    ),
+  };
+  syncCurrentPageStateFromEntries();
+}
+
+function setCurrentPageFavorite(isFavorite) {
   currentPageState = {
     ...currentPageState,
-    isBookmarked,
+    isFavorite,
   };
 }
 
@@ -240,7 +323,8 @@ function setCurrentPageNavigationSnapshot(entryId) {
 }
 
 function createNavigationSnapshot(entryId) {
-  const currentIndex = extensionState.entries.findIndex(
+  const navigableEntries = getNavigableEntries(entryId);
+  const currentIndex = navigableEntries.findIndex(
     (entry) => entry.id === entryId,
   );
 
@@ -249,24 +333,26 @@ function createNavigationSnapshot(entryId) {
   }
 
   return {
-    previousEntryId: extensionState.entries[currentIndex + 1]?.id || null,
-    nextEntryId: extensionState.entries[currentIndex - 1]?.id || null,
+    previousEntryId: navigableEntries[currentIndex + 1]?.id || null,
+    nextEntryId: navigableEntries[currentIndex - 1]?.id || null,
   };
 }
 
 function getCurrentEntryNavigation() {
+  const navigableEntries = getNavigableEntries(currentPageState.savedEntry?.id);
+
   if (!currentPageState.navigationSnapshot) {
     return { previousEntry: null, nextEntry: null };
   }
 
   return {
     previousEntry:
-      extensionState.entries.find(
+      navigableEntries.find(
         (entry) =>
           entry.id === currentPageState.navigationSnapshot.previousEntryId,
       ) || null,
     nextEntry:
-      extensionState.entries.find(
+      navigableEntries.find(
         (entry) => entry.id === currentPageState.navigationSnapshot.nextEntryId,
       ) || null,
   };
@@ -318,6 +404,11 @@ function renderBar() {
     return;
   }
 
+  if (!shouldShowBarForCurrentSite(extensionState.settings)) {
+    removeBarRoot();
+    return;
+  }
+
   let root = document.getElementById(ROOT_ID);
   if (!root) {
     root = document.createElement("div");
@@ -337,15 +428,12 @@ function renderBar() {
     : null;
 
   const filteredEntries = filterEntries(searchQuery, extensionState.entries);
+  const navigableEntries = getNavigableEntries(currentPageState.savedEntry?.id);
   const busy = isAnyPending();
   const { previousEntry, nextEntry } = getCurrentEntryNavigation();
   const currentPageTitle =
     document.title?.trim() || window.location.hostname || window.location.href;
-  const currentPageStatus = currentPageState.isBookmarked
-    ? "Nei preferiti"
-    : currentPageState.savedEntry
-      ? "Nel database"
-      : "Non salvata";
+  const currentPageStatus = formatCurrentPageStatus();
   const currentToggleAction = currentPageState.savedEntry
     ? "remove-current"
     : "save-current";
@@ -353,6 +441,23 @@ function renderBar() {
     ? "Rimuovi"
     : "Aggiungi";
   const currentToggleIcon = currentPageState.savedEntry ? "trash" : "plus";
+  const compactCurrentPageActionsMarkup = `
+        <button class="lm-icon-button" type="button" data-action="${currentToggleAction}" title="${currentToggleLabel} link corrente" aria-label="${currentToggleLabel} link corrente" ${getDisabledAttrs(busy || !currentPageState.canSave)}>${isPending(currentToggleAction) ? spinnerMarkup() : iconMarkup(currentToggleIcon)}</button>
+        <button class="lm-icon-button${getToggleStateClass("seen", currentPageState.isSeen)}" type="button" data-action="toggle-seen-current" title="${currentPageState.isSeen ? "Togli visto" : "Segna visto"}" aria-label="${currentPageState.isSeen ? "Togli visto" : "Segna visto"}" ${getDisabledAttrs(busy || !currentPageState.savedEntry)}>${isPending("toggle-seen-current") ? spinnerMarkup() : iconMarkup(currentPageState.isSeen ? "check-badge" : "check")}</button>
+        <button class="lm-icon-button${getToggleStateClass("favorite", currentPageState.isFavorite)}" type="button" data-action="toggle-favorite-current" title="${currentPageState.isFavorite ? "Togli favorito" : "Segna favorito"}" aria-label="${currentPageState.isFavorite ? "Togli favorito" : "Segna favorito"}" ${getDisabledAttrs(busy || !currentPageState.savedEntry)}>${isPending("toggle-favorite-current") ? spinnerMarkup() : iconMarkup(currentPageState.isFavorite ? "star-filled" : "star")}</button>
+      `;
+  const currentPageActionsMarkup = currentPageState.savedEntry
+    ? `
+            <button class="lm-action-button${getToggleStateClass("seen", currentPageState.isSeen)}" type="button" data-action="toggle-seen-current" ${getDisabledAttrs(busy)}>
+              ${isPending("toggle-seen-current") ? spinnerMarkup() : iconMarkup(currentPageState.isSeen ? "check-badge" : "check")}
+              <span>${currentPageState.isSeen ? "Togli visto" : "Segna visto"}</span>
+            </button>
+            <button class="lm-action-button${getToggleStateClass("favorite", currentPageState.isFavorite)}" type="button" data-action="toggle-favorite-current" ${getDisabledAttrs(busy)}>
+              ${isPending("toggle-favorite-current") ? spinnerMarkup() : iconMarkup(currentPageState.isFavorite ? "star-filled" : "star")}
+              <span>${currentPageState.isFavorite ? "Togli favorito" : "Segna favorito"}</span>
+            </button>
+          `
+    : "";
   const captureToggleLabel = extensionState.settings.captureAllClicks
     ? "Click automatico attivo"
     : "Salva tutti i click";
@@ -370,7 +475,7 @@ function renderBar() {
                   <span class="lm-entry-url">${escapeHtml(entry.url)}</span>
                 </button>
                 <div class="lm-entry-actions">
-                  <button class="lm-icon-button" data-action="promote" data-id="${escapeHtml(entry.id)}" title="Aggiungi ai preferiti" aria-label="Aggiungi ai preferiti" ${getDisabledAttrs(busy)}>${isPending("promote", entry.id) ? spinnerMarkup() : iconMarkup("star")}</button>
+                  <button class="lm-icon-button${getToggleStateClass("favorite", entry.isFavorite)}" data-action="toggle-favorite" data-id="${escapeHtml(entry.id)}" title="${entry.isFavorite ? "Togli favorito" : "Segna favorito"}" aria-label="${entry.isFavorite ? "Togli favorito" : "Segna favorito"}" ${getDisabledAttrs(busy)}>${isPending("toggle-favorite", entry.id) ? spinnerMarkup() : iconMarkup(entry.isFavorite ? "star-filled" : "star")}</button>
                   <button class="lm-icon-button" data-action="remove" data-id="${escapeHtml(entry.id)}" title="Rimuovi" aria-label="Rimuovi" ${getDisabledAttrs(busy)}>${isPending("remove", entry.id) ? spinnerMarkup() : iconMarkup("trash")}</button>
                 </div>
               </li>`,
@@ -383,7 +488,7 @@ function renderBar() {
     <div class="lm-shell lm-shell-icon ${busy ? "is-busy" : ""}">
       <button class="lm-icon-launcher" type="button" data-action="expand-from-icon" title="Apri Link Manager" aria-label="Apri Link Manager">
         ${iconMarkup("bolt")}
-        <span class="lm-toggle-count">${extensionState.entries.length}</span>
+        <span class="lm-toggle-count">${navigableEntries.length}</span>
       </button>
     </div>
   `
@@ -392,7 +497,7 @@ function renderBar() {
       <div class="lm-topline">
       <button class="lm-toggle" type="button" data-action="toggle">
         <span class="lm-toggle-copy">${iconMarkup("bolt")} Link Manager</span>
-        <span class="lm-toggle-count">${extensionState.entries.length}</span>
+        <span class="lm-toggle-count">${navigableEntries.length}</span>
       </button>
       <div class="lm-top-actions">
         <button class="lm-minimize ${extensionState.settings.captureAllClicks ? "is-active" : ""}" type="button" data-action="toggle-capture-all" title="${captureToggleLabel}" aria-label="${captureToggleLabel}">
@@ -404,11 +509,10 @@ function renderBar() {
       </div>
       </div>
       <div class="lm-quick-actions">
+        ${compactCurrentPageActionsMarkup}
         <button class="lm-icon-button" type="button" data-action="prev-current" data-id="${escapeHtml(previousEntry?.id || "")}" title="Link precedente" aria-label="Link precedente" ${getDisabledAttrs(busy || !previousEntry)}>${isPending("prev-current") ? spinnerMarkup() : iconMarkup("chevron-left")}</button>
         <button class="lm-icon-button" type="button" data-action="next-current" data-id="${escapeHtml(nextEntry?.id || "")}" title="Link successivo" aria-label="Link successivo" ${getDisabledAttrs(busy || !nextEntry)}>${isPending("next-current") ? spinnerMarkup() : iconMarkup("chevron-right")}</button>
-        <button class="lm-icon-button" type="button" data-action="${currentToggleAction}" title="${currentToggleLabel} link corrente" aria-label="${currentToggleLabel} link corrente" ${getDisabledAttrs(busy || !currentPageState.canSave || (!currentPageState.savedEntry && currentPageState.isBookmarked))}>${isPending(currentToggleAction) ? spinnerMarkup() : iconMarkup(currentToggleIcon)}</button>
-        <button class="lm-icon-button" type="button" data-action="bookmark-current" title="Aggiungi pagina corrente ai preferiti" aria-label="Aggiungi pagina corrente ai preferiti" ${getDisabledAttrs(busy || !currentPageState.canSave || currentPageState.isBookmarked)}>${isPending("bookmark-current") ? spinnerMarkup() : iconMarkup("star")}</button>
-        <button class="lm-icon-button" type="button" data-action="random" title="Apri link casuale" aria-label="Apri link casuale" ${getDisabledAttrs(busy)}>${isPending("random") ? spinnerMarkup() : iconMarkup("shuffle")}</button>
+        <button class="lm-icon-button" type="button" data-action="random" title="Apri link casuale" aria-label="Apri link casuale" ${getDisabledAttrs(busy || !navigableEntries.length)}>${isPending("random") ? spinnerMarkup() : iconMarkup("shuffle")}</button>
       </div>
       <section class="lm-panel" data-collapsed="${String(!isPanelOpen)}">
         <header class="lm-toolbar">
@@ -427,14 +531,11 @@ function renderBar() {
             <span class="lm-current-status">${escapeHtml(currentPageStatus)}</span>
           </div>
           <div class="lm-current-actions">
-            <button class="lm-action-button" type="button" data-action="${currentToggleAction}" ${getDisabledAttrs(busy || !currentPageState.canSave || (!currentPageState.savedEntry && currentPageState.isBookmarked))}>
+            <button class="lm-action-button" type="button" data-action="${currentToggleAction}" ${getDisabledAttrs(busy || !currentPageState.canSave)}>
               ${isPending(currentToggleAction) ? spinnerMarkup() : iconMarkup(currentToggleIcon)}
               <span>${currentToggleLabel}</span>
             </button>
-            <button class="lm-action-button" type="button" data-action="bookmark-current" ${getDisabledAttrs(busy || !currentPageState.canSave || currentPageState.isBookmarked)}>
-              ${isPending("bookmark-current") ? spinnerMarkup() : iconMarkup("star")}
-              <span>Preferiti</span>
-            </button>
+            ${currentPageActionsMarkup}
           </div>
         </section>
         <div class="lm-search-shell">
@@ -557,6 +658,56 @@ function attachUiHandlers(root) {
             renderBar();
             break;
           }
+          case "toggle-seen-current": {
+            if (!currentPageState.savedEntry) {
+              break;
+            }
+
+            const result = await sendMessage({
+              type: "toggle-seen",
+              payload: { id: currentPageState.savedEntry.id },
+            });
+            replaceEntryInLocalState(result.entry);
+            flashMessage(
+              result.enabled
+                ? "Pagina segnata come vista"
+                : "Pagina segnata come non vista",
+            );
+            renderBar();
+            break;
+          }
+          case "toggle-favorite-current": {
+            if (!currentPageState.savedEntry) {
+              break;
+            }
+
+            const result = await sendMessage({
+              type: "toggle-favorite",
+              payload: { id: currentPageState.savedEntry.id },
+            });
+            replaceEntryInLocalState(result.entry);
+            flashMessage(
+              result.enabled
+                ? "Pagina aggiunta ai favoriti"
+                : "Pagina rimossa dai favoriti",
+            );
+            renderBar();
+            break;
+          }
+          case "toggle-favorite": {
+            const result = await sendMessage({
+              type: "toggle-favorite",
+              payload: { id },
+            });
+            replaceEntryInLocalState(result.entry);
+            flashMessage(
+              result.enabled
+                ? "Link aggiunto ai favoriti"
+                : "Link rimosso dai favoriti",
+            );
+            renderBar();
+            break;
+          }
           case "bookmark-current": {
             const result = await sendMessage({
               type: "bookmark-link",
@@ -567,13 +718,14 @@ function attachUiHandlers(root) {
             });
             flashMessage(
               result.alreadyBookmarked
-                ? "Pagina gia nei preferiti"
-                : "Pagina aggiunta ai preferiti",
+                ? "Pagina gia tra i favoriti"
+                : "Pagina aggiunta ai favoriti",
             );
-            setCurrentPageBookmarked(true);
-            if (currentPageState.savedEntry) {
-              removeEntryFromLocalState(currentPageState.savedEntry.id);
+            if (result.entry) {
+              addEntryToLocalState(result.entry);
+              setCurrentPageNavigationSnapshot(result.entry.id);
             }
+            setCurrentPageFavorite(true);
             renderBar();
             break;
           }
@@ -601,12 +753,6 @@ function attachUiHandlers(root) {
             break;
           case "remove":
             await sendMessage({ type: "remove-link", payload: { id } });
-            removeEntryFromLocalState(id);
-            renderBar();
-            break;
-          case "promote":
-            await sendMessage({ type: "promote-link", payload: { id } });
-            flashMessage("Link spostato nei preferiti");
             removeEntryFromLocalState(id);
             renderBar();
             break;
@@ -657,6 +803,24 @@ function placeRoot(root) {
   }
 }
 
+function formatCurrentPageStatus() {
+  if (!currentPageState.savedEntry) {
+    return "Non salvata";
+  }
+
+  const parts = ["Nel database"];
+
+  if (currentPageState.isSeen) {
+    parts.push("gia vista");
+  }
+
+  if (currentPageState.isFavorite) {
+    parts.push("favorita");
+  }
+
+  return parts.join(" • ");
+}
+
 function installStyles() {
   if (document.getElementById(STYLE_ID)) {
     return;
@@ -672,6 +836,7 @@ function installStyles() {
       right: 16px;
       bottom: 16px;
       z-index: 2147483647;
+      overflow: visible;
       font-family: "Segoe UI", sans-serif;
       font-size: 14px;
       line-height: 1.4;
@@ -839,6 +1004,20 @@ function installStyles() {
       background: rgba(255, 255, 255, 0.12);
       color: #f4efe6;
       flex: 0 0 auto;
+    }
+
+    #${ROOT_ID} .lm-icon-button.is-active-seen,
+    #${ROOT_ID} .lm-action-button.is-active-seen {
+      background: rgba(84, 214, 154, 0.22);
+      color: #b9f6da;
+      box-shadow: inset 0 0 0 1px rgba(84, 214, 154, 0.45);
+    }
+
+    #${ROOT_ID} .lm-icon-button.is-active-favorite,
+    #${ROOT_ID} .lm-action-button.is-active-favorite {
+      background: rgba(242, 187, 105, 0.24);
+      color: #ffd68b;
+      box-shadow: inset 0 0 0 1px rgba(242, 187, 105, 0.42);
     }
 
     #${ROOT_ID} .lm-toolbar {
@@ -1043,17 +1222,27 @@ function installStyles() {
     }
 
     #${ROOT_ID} .lm-toast {
-      margin-top: 8px;
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: calc(100% + 12px);
+      margin: 0 auto;
+      width: fit-content;
+      max-width: min(320px, calc(100vw - 48px));
       padding: 10px 12px;
       border-radius: 12px;
-      background: rgba(230, 126, 34, 0.95);
-      color: #24170b;
+      background: rgba(18, 29, 56, 0.96);
+      color: #f4efe6;
       font-size: 13px;
+      text-align: center;
+      pointer-events: none;
+      box-shadow: 0 16px 30px rgba(8, 12, 24, 0.32);
+      border: 1px solid rgba(255, 255, 255, 0.12);
       animation: lm-fade 2.4s ease forwards;
     }
 
     #${ROOT_ID} .lm-toast.is-error {
-      background: rgba(227, 84, 84, 0.95);
+      background: rgba(167, 47, 47, 0.96);
       color: #fff;
     }
 
@@ -1089,11 +1278,19 @@ function filterEntries(query, entries) {
 function formatSaveFeedback(status) {
   const feedback = {
     duplicate: "Link gia presente",
-    bookmarked: "Link gia nei preferiti",
+    updated: "Link aggiornato",
     saved: "Link salvato",
   };
 
   return feedback[status] || "Operazione completata";
+}
+
+function getToggleStateClass(kind, isActive) {
+  if (!isActive) {
+    return "";
+  }
+
+  return kind === "seen" ? " is-active-seen" : " is-active-favorite";
 }
 
 function getDisabledAttrs(disabled) {
@@ -1116,9 +1313,15 @@ function iconMarkup(name) {
       '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.65 6.35A7.95 7.95 0 0 0 12 4V1L7 6l5 5V7a5 5 0 1 1-4.9 6h-2.02A7 7 0 1 0 17.65 6.35Z"/></svg>',
     search:
       '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4a6 6 0 1 0 3.87 10.58l4.27 4.28 1.42-1.42-4.28-4.27A6 6 0 0 0 10 4Zm0 2a4 4 0 1 1 0 8 4 4 0 0 1 0-8Z"/></svg>',
+    check:
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9.55 18.02-5.03-5.03 1.41-1.41 3.62 3.61 8.52-8.51 1.41 1.41-9.93 9.93Z"/></svg>',
+    "check-badge":
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.75 4 5.7v5.86c0 4.84 3.18 9.35 8 10.69 4.82-1.34 8-5.85 8-10.69V5.7L12 2.75Zm3.57 7.98-4.34 4.34-2.8-2.79 1.41-1.42 1.39 1.39 2.93-2.93 1.41 1.41Z"/></svg>',
     shuffle:
       '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 3h5v5h-2V6.41l-4.29 4.3-1.42-1.42L17.59 5H16V3ZM4 7h3.59l9 9H20v-2h-2.59l-9-9H4V7Zm9.29 5.29 1.42 1.42L10.41 18H13v2H8v-5h2v1.59l3.29-3.3ZM19 19v-1.59l-2.29-2.3 1.42-1.42 2.87 2.88V14h2v5h-5Z"/></svg>',
     star: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 17.27 6.18 3.73-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21 12 17.27Z"/></svg>',
+    "star-filled":
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 2.81 6.63 7.19.61-5.46 4.73 1.64 7.03L12 17.27 5.82 21l1.64-7.03L2 9.24l7.19-.61L12 2Z"/></svg>',
     tabs: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h12v10H4zM2 3h16v14H2zM8 9h14v12H8zm2 2v8h10v-8H10Z"/></svg>',
     trash:
       '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l1 2h4v2H4V5h4l1-2Zm-1 6h2v8H8V9Zm6 0h2v8h-2V9ZM6 9h12l-1 11H7L6 9Z"/></svg>',
@@ -1184,11 +1387,11 @@ function formatBatchSaveMessage(result) {
   if (result.savedCount) {
     parts.push(`${result.savedCount} salvate`);
   }
+  if (result.updatedCount) {
+    parts.push(`${result.updatedCount} aggiornate`);
+  }
   if (result.duplicateCount) {
     parts.push(`${result.duplicateCount} gia presenti`);
-  }
-  if (result.bookmarkedCount) {
-    parts.push(`${result.bookmarkedCount} gia nei preferiti`);
   }
 
   return parts.length ? parts.join(" • ") : "Nessuna nuova scheda da salvare";
