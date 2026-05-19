@@ -7,6 +7,10 @@ const skipSeenInNavigationInput = document.getElementById(
 const skipFavoriteInNavigationInput = document.getElementById(
   "skipFavoriteInNavigation",
 );
+const closeDuplicateTabsOnLoadInput = document.getElementById(
+  "closeDuplicateTabsOnLoad",
+);
+const closeSeenTabsOnLoadInput = document.getElementById("closeSeenTabsOnLoad");
 const barVisibilityModeInput = document.getElementById("barVisibilityMode");
 const barVisibilitySitesInput = document.getElementById("barVisibilitySites");
 const importFolderIdInput = document.getElementById("importFolderId");
@@ -54,6 +58,12 @@ async function init() {
     skipFavoriteInNavigationInput.checked = Boolean(
       state.settings.skipFavoriteInNavigation,
     );
+    closeDuplicateTabsOnLoadInput.checked = Boolean(
+      state.settings.closeDuplicateTabsOnLoad,
+    );
+    closeSeenTabsOnLoadInput.checked = Boolean(
+      state.settings.closeSeenTabsOnLoad,
+    );
     barVisibilityModeInput.value = state.settings.barVisibilityMode || "always";
     barVisibilitySitesInput.value = formatSiteList(
       state.settings.barVisibilitySites || [],
@@ -79,6 +89,8 @@ async function saveSettings() {
         openLinksInNewTab: openLinksInNewTabInput.checked,
         skipSeenInNavigation: skipSeenInNavigationInput.checked,
         skipFavoriteInNavigation: skipFavoriteInNavigationInput.checked,
+        closeDuplicateTabsOnLoad: closeDuplicateTabsOnLoadInput.checked,
+        closeSeenTabsOnLoad: closeSeenTabsOnLoadInput.checked,
         barVisibilityMode: barVisibilityModeInput.value,
         barVisibilitySites: parseSiteList(barVisibilitySitesInput.value),
         siteRules,
