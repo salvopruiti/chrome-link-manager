@@ -48,6 +48,8 @@ async function bootstrap() {
   barMode = loadBarMode();
   installStyles();
   document.addEventListener("click", handleDocumentClick, true);
+  window.addEventListener("focus", handleWindowFocus);
+  document.addEventListener("visibilitychange", handleVisibilityChange);
 
   try {
     const response = await sendMessage({ type: "get-state" });
@@ -58,6 +60,18 @@ async function bootstrap() {
   }
 
   waitForBody(renderBar);
+}
+
+function handleWindowFocus() {
+  if (document.visibilityState === "visible") {
+    void refreshBarState();
+  }
+}
+
+function handleVisibilityChange() {
+  if (document.visibilityState === "visible") {
+    void refreshBarState();
+  }
 }
 
 function isHtmlDocument() {
@@ -160,6 +174,8 @@ async function handleDocumentClick(event) {
       saved: "Link salvato",
     };
 
+    void refreshBarState();
+
     flashMessage(feedback[result.status] || "Operazione completata");
   } catch (error) {
     flashMessage(error.message || "Errore salvataggio", true);
@@ -167,15 +183,19 @@ async function handleDocumentClick(event) {
 }
 
 function shouldCaptureClick(event) {
-  if (extensionState.settings.captureAllClicks) {
+  if (extensionState.settings.captureAllClicks && !event.shiftKey) {
     return true;
   }
 
   if (
+    (extensionState.settings.captureAllClicks && event.shiftKey) ||
     !extensionState.settings.captureWithShift ||
     !event.shiftKey ||
     event.defaultPrevented
   ) {
+    if (extensionState.settings.captureAllClicks) {
+      flashMessage("Salvataggio automatico ignorato per questo click", false);
+    }
     return;
   }
 
@@ -763,15 +783,19 @@ function attachUiHandlers(root) {
           }
           case "toggle-capture-all": {
             const nextValue = !extensionState.settings.captureAllClicks;
-            extensionState.settings = await sendMessage({
+            extensionState.settings.captureAllClicks = nextValue;
+            sendMessage({
               type: "update-settings",
               payload: { captureAllClicks: nextValue },
+            }).then((settings) => {
+              extensionState.settings.captureAllClicks =
+                settings.captureAllClicks;
+              flashMessage(
+                nextValue
+                  ? "Salvataggio automatico link attivato"
+                  : "Salvataggio automatico link disattivato",
+              );
             });
-            flashMessage(
-              nextValue
-                ? "Salvataggio automatico link attivato"
-                : "Salvataggio automatico link disattivato",
-            );
             break;
           }
           case "random":
@@ -932,8 +956,14 @@ function installStyles() {
 
     #${ROOT_ID} .lm-minimize.is-active,
     #${ROOT_ID} .lm-toolbar-actions .lm-icon-button.is-active {
-      background: rgba(255, 245, 227, 0.96);
-      box-shadow: inset 0 0 0 1px rgba(36, 23, 11, 0.18);
+      background: linear-gradient(135deg, #dc2626 0%, #f87171 100%);
+      color: #fff;
+      box-shadow: inset 0 0 0 1px rgba(139, 0, 0, 0.35);
+    }
+
+    #${ROOT_ID} .lm-minimize.is-active:hover,
+    #${ROOT_ID} .lm-toolbar-actions .lm-icon-button.is-active:hover {
+      background: linear-gradient(135deg, #b91c1c 0%, #f87171 100%);
     }
 
     #${ROOT_ID} .lm-top-actions .lm-icon,

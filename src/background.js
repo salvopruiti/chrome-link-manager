@@ -107,6 +107,8 @@ async function handleMessage(message, sender) {
       return toggleEntryFavorite(message.payload?.id);
     case "save-link":
       return saveLink(message.payload, sender);
+    case "update-link":
+      return updateLink(message.payload);
     case "save-open-tabs":
       return saveOpenTabs();
     case "remove-link-by-url":
@@ -212,10 +214,10 @@ async function runScheduledPendingSyncFlush() {
     }
 
     isPendingSyncFlushRunning = true;
-    await broadcastState();
+    void broadcastState();
     await flushPendingSync(session);
     isPendingSyncFlushRunning = false;
-    await broadcastState();
+    void broadcastState();
     return true;
   })()
     .catch((error) => {
@@ -333,7 +335,6 @@ async function updateSettings(nextSettings) {
     });
   }
 
-  await broadcastState();
   return getSettings();
 }
 
@@ -367,7 +368,7 @@ async function getAuthSession() {
 
 async function setAuthSession(session) {
   await LOCAL_SETTINGS_STORAGE.set({ [STORAGE_KEYS.authSession]: session });
-  await broadcastState();
+  void broadcastState();
 }
 
 async function getAuthState() {
@@ -546,7 +547,7 @@ async function syncSupabase() {
   await setEntries(mergedEntries);
   await setLastSyncAt(syncStartedAt);
   await setSyncUserId(session.user.id);
-  await broadcastState();
+  void broadcastState();
 
   return {
     syncedCount: mergedEntries.length,
@@ -681,7 +682,7 @@ async function upsertLinksToSupabase(entries, session) {
 async function syncCreatedEntries(entries) {
   await queueEntriesForUpsert(entries);
   await schedulePendingSyncFlush();
-  await broadcastState();
+  void broadcastState();
 }
 
 async function markRemoteLinkDeleted(entry) {
@@ -691,7 +692,7 @@ async function markRemoteLinkDeleted(entry) {
   }
 
   await schedulePendingSyncFlush();
-  await broadcastState();
+  void broadcastState();
 }
 
 async function flushPendingSync(session) {
@@ -1004,8 +1005,89 @@ async function saveLink(payload, sender) {
       title: payload?.title,
       text: payload?.text,
       pageUrl: payload?.pageUrl || sender?.tab?.url || null,
+      isSeen: payload?.isSeen,
+      seenAt: payload?.isSeen
+        ? payload?.seenAt || new Date().toISOString()
+        : null,
+      isFavorite: payload?.isFavorite,
+      favoritedAt: payload?.isFavorite
+        ? payload?.favoritedAt || new Date().toISOString()
+        : null,
     },
   ]);
+}
+
+async function updateLink(payload) {
+  const id = payload?.id;
+  const url = String(payload?.url || "").trim();
+
+  if (!id) {
+    throw new Error("Missing link id");
+  }
+
+  if (!isSavableUrl(url)) {
+    throw new Error("Inserisci un URL valido");
+  }
+
+  const entries = await getEntries();
+  const settings = await getSettings();
+  const currentEntry = entries.find((entry) => entry.id === id);
+
+  if (!currentEntry) {
+    throw new Error("Link not found");
+  }
+
+  const normalizedUrl = normalizeUrl(url, settings.siteRules);
+  const conflictingEntry = entries.find(
+    (entry) => entry.id !== id && entry.normalizedUrl === normalizedUrl,
+  );
+
+  if (conflictingEntry) {
+    throw new Error("Esiste gia un link con questo URL");
+  }
+
+  const now = new Date().toISOString();
+  const nextIsSeen = Boolean(payload?.isSeen);
+  const nextIsFavorite = Boolean(payload?.isFavorite);
+  const nextEntry = normalizeEntries([
+    {
+      ...currentEntry,
+      url,
+      normalizedUrl,
+      title: String(payload?.title || "").trim() || url,
+      pageUrl:
+        String(payload?.pageUrl || "").trim() || currentEntry.pageUrl || url,
+      isSeen: nextIsSeen,
+      seenAt: nextIsSeen
+        ? currentEntry.isSeen
+          ? currentEntry.seenAt || now
+          : now
+        : null,
+      isFavorite: nextIsFavorite,
+      favoritedAt: nextIsFavorite
+        ? currentEntry.isFavorite
+          ? currentEntry.favoritedAt || now
+          : now
+        : null,
+      updatedAt: now,
+    },
+  ])[0];
+
+  const nextEntries = entries.map((entry) =>
+    entry.id === id ? nextEntry : entry,
+  );
+  await setEntries(nextEntries);
+
+  if (currentEntry.normalizedUrl !== nextEntry.normalizedUrl) {
+    await queueEntryDelete(currentEntry);
+  }
+
+  void syncCreatedEntries([nextEntry]).catch(() => undefined);
+
+  return {
+    updated: true,
+    entry: nextEntry,
+  };
 }
 
 async function saveOpenTabs() {
@@ -1623,13 +1705,13 @@ async function broadcastState() {
   const state = await getState();
   const tabs = await chrome.tabs.query({});
 
-  await Promise.all(
-    tabs
-      .filter((tab) => typeof tab.id === "number")
-      .map((tab) =>
-        chrome.tabs
-          .sendMessage(tab.id, { type: "state-updated", payload: state })
-          .catch(() => undefined),
-      ),
-  );
+  // await Promise.all(
+  //   tabs
+  //     .filter((tab) => typeof tab.id === "number")
+  //     .map((tab) =>
+  //       chrome.tabs
+  //         .sendMessage(tab.id, { type: "state-updated", payload: state })
+  //         .catch(() => undefined),
+  //     ),
+  // );
 }

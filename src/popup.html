@@ -52,6 +52,12 @@
         flex: 0 0 64px;
       }
 
+      .header-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
       .brand {
         display: inline-flex;
         align-items: center;
@@ -65,6 +71,14 @@
         border-radius: 999px;
         text-align: center;
         background: rgba(36, 23, 11, 0.16);
+        font-weight: 700;
+      }
+
+      .header-link {
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: rgba(36, 23, 11, 0.14);
+        color: #24170b;
         font-weight: 700;
       }
 
@@ -279,7 +293,10 @@
           <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M13 2 5 14h5l-1 8 8-12h-5l1-8Z"/></svg></span>
           <span>Link Manager</span>
         </div>
-        <span id="count" class="count">0</span>
+        <div class="header-actions">
+          <button id="openArchiveButton" class="header-link" type="button">Archivio</button>
+          <span id="count" class="count">0</span>
+        </div>
       </header>
       <section class="body">
         <div id="quickActions" class="quick-actions"></div>

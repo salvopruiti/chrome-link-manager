@@ -6,6 +6,7 @@ const countNode = document.getElementById("count");
 const statusNode = document.getElementById("status");
 const syncSummaryNode = document.getElementById("syncSummary");
 const quickActionsNode = document.getElementById("quickActions");
+const openArchiveButton = document.getElementById("openArchiveButton");
 
 let popupState = {
   entries: [],
@@ -34,6 +35,8 @@ filterFavoriteButton.addEventListener("click", () => {
   filterFavoriteOnly = !filterFavoriteOnly;
   render();
 });
+
+openArchiveButton.addEventListener("click", openArchivePage);
 
 async function init() {
   try {
@@ -647,4 +650,9 @@ function sendMessage(message) {
       resolve(response.result);
     });
   });
+}
+
+async function openArchivePage() {
+  await chrome.tabs.create({ url: chrome.runtime.getURL("src/links.html") });
+  window.close();
 }

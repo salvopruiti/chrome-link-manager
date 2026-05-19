@@ -19,6 +19,7 @@ const lastSyncAtNode = document.getElementById("lastSyncAt");
 const syncQueueStatusNode = document.getElementById("syncQueueStatus");
 const nextFlushAtNode = document.getElementById("nextFlushAt");
 const authRedirectUrlNode = document.getElementById("authRedirectUrl");
+const openArchivePageButton = document.getElementById("openArchivePageButton");
 const saveButton = document.getElementById("saveButton");
 const importFolderButton = document.getElementById("importFolderButton");
 const sendMagicLinkButton = document.getElementById("sendMagicLinkButton");
@@ -33,6 +34,7 @@ sendMagicLinkButton.addEventListener("click", sendMagicLink);
 syncNowButton.addEventListener("click", syncNow);
 signOutButton.addEventListener("click", signOut);
 barVisibilityModeInput.addEventListener("change", syncBarVisibilityState);
+openArchivePageButton.addEventListener("click", openArchivePage);
 
 async function init() {
   try {
@@ -140,6 +142,10 @@ async function refreshState() {
   renderSyncState(state.sync);
   authEmailInput.value = state.auth?.email || authEmailInput.value || "";
   renderImportFolderOptions(folders, importFolderIdInput.value);
+}
+
+async function openArchivePage() {
+  await chrome.tabs.create({ url: chrome.runtime.getURL("src/links.html") });
 }
 
 function renderAuthState(auth = {}) {
