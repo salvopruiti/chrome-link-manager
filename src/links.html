@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Archivio Link</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f4ecdf;
+        --panel: rgba(255, 250, 241, 0.94);
+        --ink: #1e1b16;
+        --muted: rgba(30, 27, 22, 0.68);
+        --accent: #c96b17;
+        --accent-dark: #9c5112;
+        --border: rgba(135, 108, 73, 0.2);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font: 14px/1.45 "Segoe UI", sans-serif;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at top left, rgba(201, 107, 23, 0.16), transparent 26%),
+          radial-gradient(circle at top right, rgba(35, 74, 132, 0.12), transparent 22%),
+          linear-gradient(180deg, #faf4e7 0%, var(--bg) 100%);
+      }
+
+      main {
+        max-width: 1420px;
+        margin: 0 auto;
+        padding: 28px 24px 64px;
+      }
+
+      .hero,
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 24px;
+        box-shadow: 0 22px 44px rgba(30, 27, 22, 0.08);
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 16px;
+        padding: 22px 24px;
+        margin-bottom: 16px;
+      }
+
+      .hero h1 {
+        margin: 0 0 6px;
+        font-size: clamp(26px, 4vw, 38px);
+        line-height: 1.05;
+      }
+
+      .hero p {
+        margin: 0;
+        color: var(--muted);
+        max-width: 720px;
+      }
+
+      .hero-actions,
+      .filter-row,
+      .badge-row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .layout {
+        display: block;
+      }
+
+      .panel {
+        padding: 14px;
+      }
+
+      .panel h2 {
+        margin-top: 0;
+        margin-bottom: 10px;
+      }
+
+      label {
+        display: block;
+        font-weight: 700;
+        margin-bottom: 8px;
+      }
+
+      input,
+      button {
+        font: inherit;
+      }
+
+      input[type="text"] {
+        width: 100%;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 10px 12px;
+        background: #fff;
+        color: var(--ink);
+      }
+
+      button {
+        border: 0;
+        border-radius: 999px;
+        padding: 9px 13px;
+        background: var(--accent);
+        color: #fff;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      button.secondary {
+        background: transparent;
+        color: var(--ink);
+        border: 1px solid var(--border);
+      }
+
+      button.warn {
+        background: #a63f35;
+      }
+
+      .search-row,
+      .form-grid {
+        display: grid;
+        gap: 8px;
+      }
+
+      .search-row {
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: end;
+        margin-bottom: 8px;
+      }
+
+      .search-row > div {
+        min-width: 0;
+      }
+
+      .filter-row {
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 8px;
+      }
+
+      .filter-group,
+      .pagination {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      .filter-chip {
+        background: transparent;
+        color: var(--ink);
+        border: 1px solid var(--border);
+      }
+
+      .filter-chip.is-active {
+        background: rgba(201, 107, 23, 0.14);
+        color: var(--accent-dark);
+        border-color: rgba(201, 107, 23, 0.32);
+      }
+
+      .form-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .inline-options {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+
+      .inline-options label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0;
+        font-weight: 600;
+      }
+
+      .meta,
+      .status,
+      .item-url,
+      .item-page-url,
+      .empty,
+      .sync-hint {
+        color: var(--muted);
+      }
+
+      .status {
+        min-height: 1.4em;
+        margin-top: 10px;
+      }
+
+      .list {
+        overflow: auto;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.62);
+      }
+
+      .table {
+        width: 100%;
+        min-width: 980px;
+        border-collapse: collapse;
+      }
+
+      .table th,
+      .table td {
+        padding: 8px 10px;
+        border-bottom: 1px solid rgba(135, 108, 73, 0.14);
+        text-align: left;
+        vertical-align: top;
+      }
+
+      .table th {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        background: #f8f0e2;
+        font-size: 12px;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+
+      .cell-title,
+      .cell-url,
+      .cell-page-url {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        word-break: break-word;
+      }
+
+      .cell-title {
+        font-weight: 700;
+        margin-bottom: 2px;
+      }
+
+      .cell-url,
+      .cell-page-url {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        white-space: normal;
+      }
+
+      .cell-url,
+      .cell-page-url,
+      .pagination-info {
+        color: var(--muted);
+      }
+
+      .row-actions {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        white-space: normal;
+      }
+
+      .icon-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 34px;
+        height: 34px;
+        padding: 0;
+        border-radius: 10px;
+      }
+
+      .icon,
+      .icon svg {
+        display: block;
+        width: 16px;
+        height: 16px;
+      }
+
+      .icon svg {
+        fill: currentColor;
+      }
+
+      .icon-button.is-active-seen {
+        background: rgba(84, 214, 154, 0.18);
+        color: #215c42;
+      }
+
+      .icon-button.is-active-favorite {
+        background: rgba(242, 187, 105, 0.22);
+        color: var(--accent-dark);
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: rgba(30, 27, 22, 0.08);
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .badge.seen {
+        background: rgba(84, 214, 154, 0.18);
+        color: #215c42;
+      }
+
+      .badge.favorite {
+        background: rgba(242, 187, 105, 0.22);
+        color: var(--accent-dark);
+      }
+
+      .empty {
+        padding: 16px;
+        border-top: 0;
+        text-align: center;
+      }
+
+      .modal-shell {
+        position: fixed;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        background: rgba(30, 27, 22, 0.34);
+        backdrop-filter: blur(5px);
+        z-index: 20;
+      }
+
+      .modal-shell.is-open {
+        display: flex;
+      }
+
+      .modal-card {
+        width: min(560px, 100%);
+        max-height: min(88vh, 760px);
+        overflow: auto;
+        padding: 18px;
+      }
+
+      .modal-head {
+        display: flex;
+        align-items: start;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 10px;
+      }
+
+      .modal-head h2 {
+        margin: 0;
+      }
+
+      .modal-close {
+        width: 34px;
+        height: 34px;
+        padding: 0;
+        border-radius: 10px;
+      }
+
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+
+      @media (max-width: 900px) {
+        .hero,
+        .search-row {
+          grid-template-columns: 1fr;
+        }
+
+        .filter-row {
+          align-items: flex-start;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="hero">
+        <div>
+          <h1>Archivio Link</h1>
+          <p>Consulta tutti i link salvati, cercali rapidamente e gestiscili manualmente senza passare dalla pagina impostazioni.</p>
+        </div>
+        <div class="hero-actions">
+          <button id="openCreateModalButton" type="button">Nuovo link</button>
+          <button id="openOptionsButton" type="button" class="secondary">Impostazioni</button>
+          <button id="refreshButton" type="button" class="secondary">Aggiorna</button>
+        </div>
+      </section>
+
+      <section class="layout">
+        <section class="panel">
+          <div class="search-row">
+            <div>
+              <label for="archiveSearch">Ricerca link</label>
+              <input id="archiveSearch" type="text" placeholder="Cerca per titolo, URL o pagina di origine">
+            </div>
+            <button id="archiveResetButton" type="button" class="secondary">Nuovo link</button>
+          </div>
+          <div class="filter-row">
+            <div class="filter-group">
+              <button id="filterUnseenButton" type="button" class="secondary filter-chip">Non visti</button>
+              <button id="filterSeenButton" type="button" class="secondary filter-chip">Visti</button>
+              <button id="filterFavoriteButton" type="button" class="secondary filter-chip">Favoriti</button>
+            </div>
+            <div class="pagination">
+              <span id="paginationInfo" class="pagination-info"></span>
+              <button id="prevPageButton" type="button" class="secondary">Prec</button>
+              <button id="nextPageButton" type="button" class="secondary">Succ</button>
+            </div>
+          </div>
+          <p id="syncHint" class="sync-hint"></p>
+          <div id="archiveList" class="list"></div>
+          <div id="status" class="status" aria-live="polite"></div>
+        </section>
+      </section>
+
+      <div id="archiveModal" class="modal-shell" aria-hidden="true">
+        <section class="panel modal-card" role="dialog" aria-modal="true" aria-labelledby="archiveModalTitle">
+          <div class="modal-head">
+            <div>
+              <h2 id="archiveModalTitle">Modifica Link</h2>
+              <p id="archiveFormMeta" class="meta">Aggiungi manualmente un link oppure selezionane uno dalla lista per modificarlo.</p>
+            </div>
+            <button id="archiveModalCloseButton" type="button" class="secondary modal-close" aria-label="Chiudi finestra">
+              <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m18.3 5.71-1.41-1.41L12 9.17 7.11 4.29 5.7 5.7 10.59 10.6 5.7 15.49l1.41 1.41L12 12l4.89 4.9 1.41-1.41-4.89-4.89 4.89-4.89Z"/></svg></span>
+              <span class="sr-only">Chiudi</span>
+            </button>
+          </div>
+          <div class="form-grid">
+            <div>
+              <label for="archiveUrl">URL</label>
+              <input id="archiveUrl" type="text" placeholder="https://example.com/articolo">
+            </div>
+            <div>
+              <label for="archiveTitle">Titolo</label>
+              <input id="archiveTitle" type="text" placeholder="Titolo del link">
+            </div>
+            <div>
+              <label for="archivePageUrl">Pagina di origine opzionale</label>
+              <input id="archivePageUrl" type="text" placeholder="https://example.com/pagina">
+            </div>
+            <div class="inline-options">
+              <label><input id="archiveIsSeen" type="checkbox"> Gia visto</label>
+              <label><input id="archiveIsFavorite" type="checkbox"> Favorito</label>
+            </div>
+            <div class="hero-actions">
+              <button id="archiveSaveButton" type="button">Aggiungi link</button>
+              <button id="archiveCancelButton" type="button" class="secondary">Annulla modifica</button>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+    <script type="module" src="./links.js"></script>
+  </body>
+</html>
