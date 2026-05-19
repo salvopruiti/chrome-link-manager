@@ -3,7 +3,7 @@
   "name": "Link Manager",
   "version": "0.1.0",
   "description": "Gestisce link salvati localmente e li promuove ai preferiti di Chrome.",
-  "permissions": ["storage", "bookmarks", "tabs", "contextMenus"],
+  "permissions": ["storage", "bookmarks", "tabs", "contextMenus", "alarms"],
   "host_permissions": ["<all_urls>"],
   "background": {
     "service_worker": "src/background.js",
@@ -17,6 +17,12 @@
     }
   ],
   "options_page": "src/options.html",
+  "web_accessible_resources": [
+    {
+      "resources": ["src/auth-callback.html", "src/auth-callback.js"],
+      "matches": ["<all_urls>"]
+    }
+  ],
   "action": {
     "default_title": "Link Manager",
     "default_popup": "src/popup.html"
