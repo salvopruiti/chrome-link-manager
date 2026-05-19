@@ -28,6 +28,8 @@ const DEFAULT_SETTINGS = {
   openLinksInNewTab: true,
   skipSeenInNavigation: false,
   skipFavoriteInNavigation: false,
+  closeDuplicateTabsOnLoad: false,
+  closeSeenTabsOnLoad: false,
   barVisibilityMode: "always",
   barVisibilitySites: [],
   bookmarkFolderId: null,
@@ -125,6 +127,8 @@ async function handleMessage(message, sender) {
       );
     case "open-random-link":
       return openRandomLink(sender, message.payload);
+    case "check-page-load":
+      return handlePageLoad(message.payload?.url, sender);
     case "promote-link":
       return promoteLink(message.payload?.id);
     case "update-settings":
@@ -236,6 +240,7 @@ function formatSaveStatusMessage(status) {
   const feedback = {
     duplicate: "Link gia presente",
     updated: "Stato link aggiornato",
+    viewed: "Link gia visto",
     saved: "Link salvato",
   };
 
@@ -254,6 +259,69 @@ async function sendToastToTab(tabId, text, isError = false) {
     });
   } catch {
     // Ignore tabs where the content script is not available.
+  }
+}
+
+async function handlePageLoad(url, sender) {
+  const tabId = typeof sender?.tab?.id === "number" ? sender.tab.id : null;
+  const isActive = Boolean(sender?.tab?.active);
+  const openerTabId =
+    typeof sender?.tab?.openerTabId === "number"
+      ? sender.tab.openerTabId
+      : null;
+  const toastTabId = !isActive && openerTabId !== null ? openerTabId : tabId;
+
+  if (!tabId || !String(url || "").trim() || !isSavableUrl(url)) {
+    return;
+  }
+
+  const settings = await getSettings();
+  const normalizedUrl = normalizeUrl(url, settings.siteRules);
+  const tabs = await chrome.tabs.query({});
+  const duplicateTabIds = tabs
+    .filter(
+      (tab) =>
+        typeof tab.id === "number" &&
+        tab.id !== tabId &&
+        typeof tab.url === "string" &&
+        normalizeUrl(tab.url, settings.siteRules) === normalizedUrl,
+    )
+    .map((tab) => tab.id);
+
+  let notification = null;
+  if (settings.closeDuplicateTabsOnLoad && duplicateTabIds.length) {
+    await Promise.all(
+      duplicateTabIds.map((id) =>
+        chrome.tabs.remove(id).catch(() => undefined),
+      ),
+    );
+    notification = "Pagina già aperta in altre tab, chiudo i duplicati";
+  }
+
+  if (settings.closeSeenTabsOnLoad) {
+    const entries = await getEntries();
+    const seenEntry = entries.find(
+      (entry) => entry.isSeen && entry.normalizedUrl === normalizedUrl,
+    );
+
+    if (seenEntry) {
+      if (!isActive) {
+        if (!notification) {
+          notification = "Pagina già presente tra i visti, chiusa";
+        }
+        if (toastTabId !== null) {
+          void sendToastToTab(toastTabId, notification);
+        }
+        await chrome.tabs.remove(tabId).catch(() => undefined);
+        return;
+      }
+
+      notification = "Questa pagina è già presente tra i link visti";
+    }
+  }
+
+  if (notification && toastTabId !== null) {
+    await sendToastToTab(toastTabId, notification);
   }
 }
 
@@ -940,6 +1008,16 @@ function sanitizeSettings(nextSettings = {}) {
     );
   }
 
+  if (Object.hasOwn(nextSettings, "closeDuplicateTabsOnLoad")) {
+    sanitized.closeDuplicateTabsOnLoad = Boolean(
+      nextSettings.closeDuplicateTabsOnLoad,
+    );
+  }
+
+  if (Object.hasOwn(nextSettings, "closeSeenTabsOnLoad")) {
+    sanitized.closeSeenTabsOnLoad = Boolean(nextSettings.closeSeenTabsOnLoad);
+  }
+
   if (Object.hasOwn(nextSettings, "barVisibilityMode")) {
     sanitized.barVisibilityMode = ["always", "whitelist", "blacklist"].includes(
       nextSettings.barVisibilityMode,
@@ -1114,6 +1192,7 @@ async function saveLinks(links) {
   const createdEntries = [];
   const updatedEntries = [];
   let duplicateCount = 0;
+  let viewedCount = 0;
 
   for (const link of links) {
     if (!link?.url) {
@@ -1135,7 +1214,11 @@ async function saveLinks(links) {
         entriesByUrl.set(normalizedUrl, nextEntry);
         updatedEntries.push(nextEntry);
       } else {
-        duplicateCount += 1;
+        if (existingEntry.isSeen) {
+          viewedCount += 1;
+        } else {
+          duplicateCount += 1;
+        }
       }
       continue;
     }
@@ -1171,6 +1254,10 @@ async function saveLinks(links) {
 
     if (duplicateCount) {
       return { status: "duplicate" };
+    }
+
+    if (viewedCount) {
+      return { status: "viewed" };
     }
 
     throw new Error("Missing URL");

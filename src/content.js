@@ -55,11 +55,27 @@ async function bootstrap() {
     const response = await sendMessage({ type: "get-state" });
     extensionState = response;
     await refreshCurrentPageState();
+    await checkPageLoad();
   } catch {
     return;
   }
 
   waitForBody(renderBar);
+}
+
+async function checkPageLoad() {
+  if (!isSavableUrl(window.location.href)) {
+    return;
+  }
+
+  try {
+    await sendMessage({
+      type: "check-page-load",
+      payload: { url: window.location.href },
+    });
+  } catch {
+    // Ignore failures during page load checks.
+  }
 }
 
 function handleWindowFocus() {
@@ -170,6 +186,7 @@ async function handleDocumentClick(event) {
 
     const feedback = {
       duplicate: "Link gia presente",
+      viewed: "Link gia visto",
       updated: "Link aggiornato",
       saved: "Link salvato",
     };
@@ -1271,10 +1288,44 @@ function installStyles() {
       animation: lm-fade 2.4s ease forwards;
     }
 
+    .lm-page-notice {
+      all: initial;
+      position: fixed;
+      top: 16px;
+      left: 50vw;
+      transform: translateX(-50%);
+      right: auto;
+      z-index: 2147483648;
+      min-width: min(220px, calc(100vw - 32px));
+      max-width: min(640px, calc(100vw - 32px));
+      padding: 12px 18px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #d9771f 0%, #f2bb69 100%);
+      color: #24170b;
+      font-family: "Segoe UI", sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      text-align: center;
+      pointer-events: none;
+      box-shadow: 0 16px 30px rgba(8, 12, 24, 0.32);
+      border: 1px solid rgba(60, 34, 12, 0.15);
+        animation: lm-page-notice-fade 2.4s ease forwards;
+    }
+
+    .lm-page-notice.is-error {
+      background: rgba(167, 47, 47, 0.96);
+      color: #fff;
+    }
+
     #${ROOT_ID} .lm-toast.is-error {
       background: rgba(167, 47, 47, 0.96);
       color: #fff;
     }
+
+      @keyframes lm-page-notice-fade {
+        0%, 80% { opacity: 1; transform: translateX(-50%) translateY(0); }
+        100% { opacity: 0; transform: translateX(-50%) translateY(8px); }
+      }
 
     @keyframes lm-fade {
       0%, 80% { opacity: 1; transform: translateY(0); }
@@ -1309,6 +1360,7 @@ function formatSaveFeedback(status) {
   const feedback = {
     duplicate: "Link gia presente",
     updated: "Link aggiornato",
+    viewed: "Link gia visto",
     saved: "Link salvato",
   };
 
@@ -1366,19 +1418,31 @@ function spinnerMarkup() {
 
 function flashMessage(text, isError = false) {
   const root = document.getElementById(ROOT_ID);
-  if (!root) {
+  if (root) {
+    const existingToast = root.querySelector(".lm-toast");
+    existingToast?.remove();
+
+    const toast = document.createElement("div");
+    toast.className = `lm-toast${isError ? " is-error" : ""}`;
+    toast.textContent = text;
+    root.appendChild(toast);
+
+    window.setTimeout(() => toast.remove(), 10000);
     return;
   }
 
-  const existingToast = root.querySelector(".lm-toast");
-  existingToast?.remove();
+  const existingPageNotice = document.getElementById(
+    "link-manager-page-notice",
+  );
+  existingPageNotice?.remove();
 
-  const toast = document.createElement("div");
-  toast.className = `lm-toast${isError ? " is-error" : ""}`;
-  toast.textContent = text;
-  root.appendChild(toast);
+  const notice = document.createElement("div");
+  notice.id = "link-manager-page-notice";
+  notice.className = `lm-page-notice${isError ? " is-error" : ""}`;
+  notice.textContent = text;
+  document.documentElement.appendChild(notice);
 
-  window.setTimeout(() => toast.remove(), 2400);
+  window.setTimeout(() => notice.remove(), 10000);
 }
 
 function escapeHtml(value) {
