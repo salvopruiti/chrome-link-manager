@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Link Manager",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Gestisce link salvati localmente e li promuove ai preferiti di Chrome.",
   "permissions": ["storage", "bookmarks", "tabs", "contextMenus", "alarms"],
   "host_permissions": ["<all_urls>"],
