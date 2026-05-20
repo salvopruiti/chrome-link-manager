@@ -1,11 +1,14 @@
 create extension if not exists pgcrypto;
 
+create sequence if not exists public.links_revision_seq;
+
 create or replace function public.set_updated_at()
 returns trigger
 language plpgsql
 as $$
 begin
   new.updated_at = timezone('utc', now());
+  new.revision_id = nextval('public.links_revision_seq');
   return new;
 end;
 $$;
@@ -23,6 +26,7 @@ create table if not exists public.links (
   favorited_at timestamptz,
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now()),
+  revision_id bigint not null default nextval('public.links_revision_seq'),
   deleted_at timestamptz
 );
 
@@ -38,16 +42,32 @@ alter table public.links
 alter table public.links
   add column if not exists favorited_at timestamptz;
 
+alter table public.links
+  add column if not exists revision_id bigint;
+
+alter table public.links
+  alter column revision_id set default nextval('public.links_revision_seq');
+
+drop trigger if exists set_links_updated_at on public.links;
+
+update public.links
+set revision_id = nextval('public.links_revision_seq')
+where revision_id is null;
+
+alter table public.links
+  alter column revision_id set not null;
+
 create unique index if not exists links_user_id_normalized_url_key
   on public.links (user_id, normalized_url);
 
 create index if not exists links_user_id_updated_at_idx
   on public.links (user_id, updated_at desc);
 
+create index if not exists links_user_id_revision_id_idx
+  on public.links (user_id, revision_id desc);
+
 create index if not exists links_user_id_deleted_at_idx
   on public.links (user_id, deleted_at);
-
-drop trigger if exists set_links_updated_at on public.links;
 
 create trigger set_links_updated_at
 before update on public.links

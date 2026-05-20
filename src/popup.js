@@ -49,8 +49,23 @@ async function init() {
     activeTab = tabs[0] || null;
     await refreshCurrentPageState();
     render();
+
+    if (state.auth?.isAuthenticated) {
+      void refreshPopupStateFromSync();
+    }
   } catch (error) {
     setStatus(error.message || "Impossibile caricare i link", true);
+  }
+}
+
+async function refreshPopupStateFromSync() {
+  try {
+    await sendMessage({ type: "sync-supabase" });
+    popupState = await sendMessage({ type: "get-state" });
+    await refreshCurrentPageState();
+    render();
+  } catch {
+    // Keep the already rendered local state if background sync fails.
   }
 }
 

@@ -45,10 +45,22 @@ async function init() {
     authRedirectUrlNode.textContent = chrome.runtime.getURL(
       "src/auth-callback.html",
     );
-    const [state, folders] = await Promise.all([
+    let [state, folders] = await Promise.all([
       sendMessage({ type: "get-state" }),
       sendMessage({ type: "list-bookmark-folders" }),
     ]);
+
+    if (state.auth?.isAuthenticated) {
+      try {
+        await sendMessage({ type: "sync-supabase" });
+        [state, folders] = await Promise.all([
+          sendMessage({ type: "get-state" }),
+          sendMessage({ type: "list-bookmark-folders" }),
+        ]);
+      } catch {
+        // Keep rendering cached local state if opportunistic sync fails.
+      }
+    }
 
     captureWithShiftInput.checked = Boolean(state.settings.captureWithShift);
     openLinksInNewTabInput.checked = Boolean(state.settings.openLinksInNewTab);

@@ -1,4 +1,15 @@
-import { SUPABASE_ANON_KEY, SUPABASE_URL } from "./supabase-config.js";
+import {
+  exchangeTokenHashForSession,
+  fetchRemoteLinks,
+  fetchSupabaseUser,
+  isSupabaseConfigured,
+  normalizeSupabaseSession,
+  patchRemoteLinkDeleted,
+  refreshSupabaseSession,
+  sendMagicLinkRequest,
+  signOutRequest,
+  upsertLinksToSupabase,
+} from "./supabase-client.js";
 
 const STORAGE_KEYS = {
   entries: "entries",
@@ -6,13 +17,13 @@ const STORAGE_KEYS = {
   bookmarkFolderId: "bookmarkFolderId",
   authSession: "authSession",
   lastSyncAt: "lastSyncAt",
+  lastSyncRevision: "lastSyncRevision",
   pendingSync: "pendingSync",
   syncUserId: "syncUserId",
 };
 
 const SETTINGS_STORAGE = chrome.storage.sync;
 const LOCAL_SETTINGS_STORAGE = chrome.storage.local;
-const SUPABASE_PAGE_SIZE = 1000;
 const SYNC_FLUSH_DEBOUNCE_MS = 15000;
 const SYNC_PERIODIC_FLUSH_MINUTES = 2;
 const SYNC_FLUSH_ALARM = "pending-sync-flush";
@@ -219,7 +230,7 @@ async function runScheduledPendingSyncFlush() {
 
     isPendingSyncFlushRunning = true;
     void broadcastState();
-    await flushPendingSync(session);
+    await syncSupabase();
     isPendingSyncFlushRunning = false;
     void broadcastState();
     return true;
@@ -439,6 +450,11 @@ async function setAuthSession(session) {
   void broadcastState();
 }
 
+async function clearAuthSession() {
+  await LOCAL_SETTINGS_STORAGE.remove(STORAGE_KEYS.authSession);
+  void broadcastState();
+}
+
 async function getAuthState() {
   const [session, lastSyncAt] = await Promise.all([
     getAuthSession(),
@@ -446,7 +462,7 @@ async function getAuthState() {
   ]);
 
   return {
-    isConfigured: Boolean(SUPABASE_URL && SUPABASE_ANON_KEY),
+    isConfigured: isSupabaseConfigured(),
     isAuthenticated: Boolean(session?.accessToken),
     email: session?.user?.email || "",
     userId: session?.user?.id || null,
@@ -462,6 +478,19 @@ async function getLastSyncAt() {
 async function setLastSyncAt(value) {
   await LOCAL_SETTINGS_STORAGE.set({ [STORAGE_KEYS.lastSyncAt]: value });
 }
+
+async function getLastSyncRevision() {
+  const data = await LOCAL_SETTINGS_STORAGE.get(STORAGE_KEYS.lastSyncRevision);
+  const value = Number(data[STORAGE_KEYS.lastSyncRevision]);
+  return Number.isFinite(value) && value > 0 ? value : null;
+}
+
+async function setLastSyncRevision(value) {
+  await LOCAL_SETTINGS_STORAGE.set({
+    [STORAGE_KEYS.lastSyncRevision]: value == null ? null : Number(value),
+  });
+}
+
 async function getSyncUserId() {
   const data = await LOCAL_SETTINGS_STORAGE.get(STORAGE_KEYS.syncUserId);
   return data[STORAGE_KEYS.syncUserId] || null;
@@ -514,28 +543,10 @@ async function queueEntryDelete(entry) {
 }
 
 async function sendMagicLink(email) {
-  const trimmedEmail = String(email || "")
-    .trim()
-    .toLowerCase();
-  if (!trimmedEmail) {
-    throw new Error("Inserisci un indirizzo email valido");
-  }
-
-  const response = await fetchSupabase("/auth/v1/otp", {
-    method: "POST",
-    body: JSON.stringify({
-      email: trimmedEmail,
-      create_user: true,
-      redirect_to: chrome.runtime.getURL("src/auth-callback.html"),
-    }),
-  });
-
-  await readSupabaseJson(response);
-
-  return {
-    sent: true,
-    email: trimmedEmail,
-  };
+  return sendMagicLinkRequest(
+    email,
+    chrome.runtime.getURL("src/auth-callback.html"),
+  );
 }
 
 async function completeAuthSession(payload) {
@@ -554,30 +565,12 @@ async function completeAuthSession(payload) {
   return getAuthState();
 }
 
-async function exchangeTokenHashForSession(payload) {
-  const response = await fetchSupabase("/auth/v1/verify", {
-    method: "POST",
-    body: JSON.stringify({
-      token_hash: payload.token_hash,
-      type: payload.type || "email",
-    }),
-  });
-
-  return readSupabaseJson(response);
-}
-
 async function signOutSupabase() {
   const session = await getAuthSession();
 
   if (session?.accessToken) {
     try {
-      const response = await fetchSupabase("/auth/v1/logout", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${session.accessToken}`,
-        },
-      });
-      await readSupabaseJson(response, true);
+      await signOutRequest(session.accessToken);
     } catch {
       // Local sign-out should still succeed if the remote session is already invalid.
     }
@@ -598,40 +591,35 @@ async function syncSupabase() {
     await resetLocalSyncCache();
   }
 
-  const syncStartedAt = new Date().toISOString();
   await flushPendingSync(session);
 
-  const lastSyncAt = await getLastSyncAt();
+  const lastSyncRevision = await getLastSyncRevision();
   const [localEntries, remoteLinks] = await Promise.all([
     getEntries(),
-    fetchRemoteLinks(session, lastSyncAt),
+    fetchRemoteLinks(session, lastSyncRevision),
   ]);
-  const mergedEntries = mergeEntriesForSync(localEntries, remoteLinks);
 
-  if (!lastSyncAt && mergedEntries.length) {
+  let appliedRemoteLinks = remoteLinks;
+  let mergedEntries = mergeEntriesForSync(localEntries, remoteLinks);
+
+  if (!lastSyncRevision && mergedEntries.length) {
     await upsertLinksToSupabase(mergedEntries, session);
+    appliedRemoteLinks = await fetchRemoteLinks(session, null);
+    mergedEntries = mergeEntriesForSync([], appliedRemoteLinks);
   }
 
   await setEntries(mergedEntries);
-  await setLastSyncAt(syncStartedAt);
+  await setLastSyncAt(new Date().toISOString());
+  await setLastSyncRevision(
+    getLatestRevisionId(lastSyncRevision, appliedRemoteLinks),
+  );
   await setSyncUserId(session.user.id);
   void broadcastState();
 
   return {
     syncedCount: mergedEntries.length,
-    changesPulled: remoteLinks.length,
-    lastSyncAt: syncStartedAt,
-  };
-}
-
-function normalizeSupabaseSession(payload = {}) {
-  return {
-    accessToken: payload.access_token || payload.accessToken || "",
-    refreshToken: payload.refresh_token || payload.refreshToken || "",
-    expiresAt:
-      Number(payload.expires_at || payload.expiresAt || 0) ||
-      Math.floor(Date.now() / 1000) + Number(payload.expires_in || 3600),
-    tokenType: payload.token_type || payload.tokenType || "bearer",
+    changesPulled: appliedRemoteLinks.length,
+    lastSyncAt: await getLastSyncAt(),
   };
 }
 
@@ -646,16 +634,7 @@ async function ensureValidAuthSession() {
     return session;
   }
 
-  const response = await fetchSupabase(
-    "/auth/v1/token?grant_type=refresh_token",
-    {
-      method: "POST",
-      body: JSON.stringify({
-        refresh_token: session.refreshToken,
-      }),
-    },
-  );
-  const data = await readSupabaseJson(response);
+  const data = await refreshSupabaseSession(session.refreshToken);
   const refreshedSession = {
     ...normalizeSupabaseSession(data),
     user: data.user || session.user,
@@ -663,88 +642,6 @@ async function ensureValidAuthSession() {
 
   await setAuthSession(refreshedSession);
   return refreshedSession;
-}
-
-async function fetchSupabaseUser(accessToken) {
-  const response = await fetchSupabase("/auth/v1/user", {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
-
-  return readSupabaseJson(response);
-}
-
-async function fetchRemoteLinks(session, changedAfter = null) {
-  const remoteLinks = [];
-  let offset = 0;
-
-  while (true) {
-    const query = new URLSearchParams({
-      select:
-        "id,url,normalized_url,title,page_url,created_at,updated_at,deleted_at,is_seen,seen_at,is_favorite,favorited_at",
-      order: "updated_at.desc",
-      limit: String(SUPABASE_PAGE_SIZE),
-      offset: String(offset),
-    });
-
-    if (changedAfter) {
-      query.set("updated_at", `gt.${changedAfter}`);
-    }
-
-    const response = await fetchSupabase(`/rest/v1/links?${query.toString()}`, {
-      headers: {
-        Authorization: `Bearer ${session.accessToken}`,
-      },
-    });
-
-    const page = await readSupabaseJson(response);
-    remoteLinks.push(...page);
-
-    if (page.length < SUPABASE_PAGE_SIZE) {
-      break;
-    }
-
-    offset += SUPABASE_PAGE_SIZE;
-  }
-
-  return remoteLinks;
-}
-
-async function upsertLinksToSupabase(entries, session) {
-  if (!entries.length) {
-    return;
-  }
-
-  const payload = entries.map((entry) => ({
-    id: entry.id,
-    user_id: session.user.id,
-    url: entry.url,
-    normalized_url: entry.normalizedUrl,
-    title: entry.title,
-    page_url: entry.pageUrl || null,
-    created_at: entry.createdAt,
-    updated_at: entry.updatedAt,
-    is_seen: Boolean(entry.isSeen),
-    seen_at: entry.seenAt || null,
-    is_favorite: Boolean(entry.isFavorite),
-    favorited_at: entry.favoritedAt || null,
-    deleted_at: null,
-  }));
-
-  const response = await fetchSupabase(
-    "/rest/v1/links?on_conflict=user_id,normalized_url",
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${session.accessToken}`,
-        Prefer: "resolution=merge-duplicates,return=minimal",
-      },
-      body: JSON.stringify(payload),
-    },
-  );
-
-  await readSupabaseJson(response, true);
 }
 
 async function syncCreatedEntries(entries) {
@@ -791,23 +688,7 @@ async function resetLocalSyncCache() {
   await setEntries([]);
   await setPendingSync({ upserts: {}, deletes: {} });
   await setLastSyncAt(null);
-}
-
-async function patchRemoteLinkDeleted(entry, session) {
-  const response = await fetchSupabase(
-    `/rest/v1/links?normalized_url=eq.${encodeURIComponent(entry.normalizedUrl)}`,
-    {
-      method: "PATCH",
-      headers: {
-        Authorization: `Bearer ${session.accessToken}`,
-      },
-      body: JSON.stringify({
-        deleted_at: entry.deletedAt,
-      }),
-    },
-  );
-
-  await readSupabaseJson(response, true);
+  await setLastSyncRevision(null);
 }
 
 function mergeEntriesForSync(localEntries, remoteLinks) {
@@ -829,6 +710,7 @@ function mergeEntriesForSync(localEntries, remoteLinks) {
       pageUrl: remoteLink.page_url,
       createdAt: remoteLink.created_at,
       updatedAt: remoteLink.updated_at || remoteLink.created_at,
+      revisionId: normalizeRevisionId(remoteLink.revision_id),
       isSeen: Boolean(remoteLink.is_seen),
       seenAt: remoteLink.seen_at || null,
       isFavorite: Boolean(remoteLink.is_favorite),
@@ -846,6 +728,7 @@ function mergeEntriesForSync(localEntries, remoteLinks) {
 function normalizeEntries(entries) {
   return entries.map((entry) => ({
     ...entry,
+    revisionId: normalizeRevisionId(entry.revisionId),
     createdAt: entry.createdAt || new Date().toISOString(),
     updatedAt: entry.updatedAt || entry.createdAt || new Date().toISOString(),
     isSeen: Boolean(entry.isSeen),
@@ -927,44 +810,23 @@ function mergeEntryWithLink(existingEntry, link) {
   return changed ? normalizeEntries([nextEntry])[0] : current;
 }
 
-function fetchSupabase(path, options = {}, skipContentType = false) {
-  const headers = {
-    apikey: SUPABASE_ANON_KEY,
-    ...(skipContentType ? {} : { "Content-Type": "application/json" }),
-    ...(options.headers || {}),
-  };
-
-  return fetch(`${SUPABASE_URL}${path}`, {
-    ...options,
-    headers,
-  });
+function normalizeRevisionId(value) {
+  const revisionId = Number(value);
+  return Number.isFinite(revisionId) && revisionId > 0 ? revisionId : null;
 }
 
-async function readSupabaseJson(response, allowEmpty = false) {
-  if (!response.ok) {
-    const errorPayload = await safeJson(response);
-    throw new Error(
-      errorPayload?.msg ||
-        errorPayload?.error_description ||
-        errorPayload?.message ||
-        `Supabase error ${response.status}`,
-    );
-  }
-
-  const text = await response.text();
-  if (!text) {
-    return allowEmpty ? null : {};
-  }
-
-  return JSON.parse(text);
-}
-
-async function safeJson(response) {
-  try {
-    return await response.json();
-  } catch {
-    return null;
-  }
+function getLatestRevisionId(previousRevisionId, remoteLinks) {
+  return (
+    remoteLinks.reduce(
+      (maxRevisionId, remoteLink) => {
+        const revisionId = normalizeRevisionId(remoteLink.revision_id);
+        return revisionId && revisionId > maxRevisionId
+          ? revisionId
+          : maxRevisionId;
+      },
+      normalizeRevisionId(previousRevisionId) || 0,
+    ) || null
+  );
 }
 
 function pickSyncSettings(settings) {
