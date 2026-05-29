@@ -18,7 +18,6 @@ let extensionState = {
 
 let initialized = false;
 let barMode = "closed";
-let searchQuery = "";
 let currentPageState = createEmptyCurrentPageState();
 let pendingAction = null;
 let toastTimeoutId = null;
@@ -481,18 +480,6 @@ function renderBar() {
   }
 
   placeRoot(wrapper, toastHost, root);
-
-  const previousSearchInput = root.querySelector(".lm-search-input");
-  const shouldRestoreSearchFocus =
-    previousSearchInput && document.activeElement === previousSearchInput;
-  const searchSelectionStart = shouldRestoreSearchFocus
-    ? previousSearchInput.selectionStart
-    : null;
-  const searchSelectionEnd = shouldRestoreSearchFocus
-    ? previousSearchInput.selectionEnd
-    : null;
-
-  const filteredEntries = filterEntries(searchQuery, extensionState.entries);
   const navigableEntries = getNavigableEntries(currentPageState.savedEntry?.id);
   const busy = isAnyPending();
   const { previousEntry, nextEntry } = getCurrentEntryNavigation();
@@ -513,13 +500,13 @@ function renderBar() {
       `;
   const currentPageActionsMarkup = currentPageState.savedEntry
     ? `
-            <button class="lm-action-button${getToggleStateClass("seen", currentPageState.isSeen)}" type="button" data-action="toggle-seen-current" ${getDisabledAttrs(busy)}>
+            <button title="${currentPageState.isSeen ? "Togli visto" : "Segna visto"}" class="lm-action-button${getToggleStateClass("seen", currentPageState.isSeen)}" type="button" data-action="toggle-seen-current" ${getDisabledAttrs(busy)}>
               ${isPending("toggle-seen-current") ? spinnerMarkup() : iconMarkup(currentPageState.isSeen ? "check-badge" : "check")}
-              <span>${currentPageState.isSeen ? "Togli visto" : "Segna visto"}</span>
+              <span style="display: none">${currentPageState.isSeen ? "Togli visto" : "Segna visto"}</span>
             </button>
-            <button class="lm-action-button${getToggleStateClass("favorite", currentPageState.isFavorite)}" type="button" data-action="toggle-favorite-current" ${getDisabledAttrs(busy)}>
+            <button title="${currentPageState.isFavorite ? "Togli favorito" : "Segna favorito"}" class="lm-action-button${getToggleStateClass("favorite", currentPageState.isFavorite)}" type="button" data-action="toggle-favorite-current" ${getDisabledAttrs(busy)}>
               ${isPending("toggle-favorite-current") ? spinnerMarkup() : iconMarkup(currentPageState.isFavorite ? "star-filled" : "star")}
-              <span>${currentPageState.isFavorite ? "Togli favorito" : "Segna favorito"}</span>
+              <span style="display: none">${currentPageState.isFavorite ? "Togli favorito" : "Segna favorito"}</span>
             </button>
           `
     : "";
@@ -528,25 +515,6 @@ function renderBar() {
     : "Salva tutti i click";
   const isIconMode = barMode === "icon";
   const isPanelOpen = barMode === "open";
-  const resultsMarkup = !searchQuery.trim()
-    ? '<li class="lm-empty">Scrivi nella ricerca per trovare un link salvato</li>'
-    : filteredEntries.length
-      ? filteredEntries
-          .map(
-            (entry) => `
-              <li class="lm-entry" data-id="${escapeHtml(entry.id)}">
-                <button class="lm-entry-open" data-action="open" data-id="${escapeHtml(entry.id)}" title="Apri link">
-                  <span class="lm-entry-title">${escapeHtml(entry.title)}</span>
-                  <span class="lm-entry-url">${escapeHtml(entry.url)}</span>
-                </button>
-                <div class="lm-entry-actions">
-                  <button class="lm-icon-button${getToggleStateClass("favorite", entry.isFavorite)}" data-action="toggle-favorite" data-id="${escapeHtml(entry.id)}" title="${entry.isFavorite ? "Togli favorito" : "Segna favorito"}" aria-label="${entry.isFavorite ? "Togli favorito" : "Segna favorito"}" ${getDisabledAttrs(busy)}>${isPending("toggle-favorite", entry.id) ? spinnerMarkup() : iconMarkup(entry.isFavorite ? "star-filled" : "star")}</button>
-                  <button class="lm-icon-button" data-action="remove" data-id="${escapeHtml(entry.id)}" title="Rimuovi" aria-label="Rimuovi" ${getDisabledAttrs(busy)}>${isPending("remove", entry.id) ? spinnerMarkup() : iconMarkup("trash")}</button>
-                </div>
-              </li>`,
-          )
-          .join("")
-      : '<li class="lm-empty">Nessun risultato</li>';
 
   root.innerHTML = isIconMode
     ? `
@@ -581,7 +549,7 @@ function renderBar() {
       </div>
       <section class="lm-panel" data-collapsed="${String(!isPanelOpen)}">
         <header class="lm-toolbar">
-          <strong>${iconMarkup("bolt")} ${extensionState.settings.captureAllClicks ? "Salvataggio click attivo" : "Salvati con Shift+Click"}</strong>
+          <strong>${iconMarkup("bolt")} ${extensionState.settings.captureAllClicks ? "Click" : "Shift+Click"}</strong>
           <div class="lm-toolbar-actions">
             <button class="lm-icon-button ${extensionState.settings.captureAllClicks ? "is-active" : ""}" type="button" data-action="toggle-capture-all" title="${captureToggleLabel}" aria-label="${captureToggleLabel}" ${getDisabledAttrs(busy)}>${isPending("toggle-capture-all") ? spinnerMarkup() : iconMarkup("capture")}</button>
             <button class="lm-icon-button" type="button" data-action="save-open-tabs" title="Salva tutte le schede" aria-label="Salva tutte le schede" ${getDisabledAttrs(busy)}>${isPending("save-open-tabs") ? spinnerMarkup() : iconMarkup("tabs")}</button>
@@ -596,46 +564,23 @@ function renderBar() {
             <span class="lm-current-status">${escapeHtml(currentPageStatus)}</span>
           </div>
           <div class="lm-current-actions">
-            <button class="lm-action-button" type="button" data-action="${currentToggleAction}" ${getDisabledAttrs(busy || !currentPageState.canSave)}>
+            <button title="${currentToggleLabel}" class="lm-action-button" type="button" data-action="${currentToggleAction}" ${getDisabledAttrs(busy || !currentPageState.canSave)}>
               ${isPending(currentToggleAction) ? spinnerMarkup() : iconMarkup(currentToggleIcon)}
-              <span>${currentToggleLabel}</span>
+              <span style="display: none">${currentToggleLabel}</span>
             </button>
             ${currentPageActionsMarkup}
           </div>
         </section>
-        <div class="lm-search-shell">
-          <label class="lm-search" aria-label="Cerca link salvati">
-            <span class="lm-search-icon">${iconMarkup("search")}</span>
-            <input class="lm-search-input" type="search" placeholder="Cerca nei link salvati" value="${escapeHtml(searchQuery)}">
-          </label>
-        </div>
-        <ul class="lm-list">${resultsMarkup}</ul>
       </section>
     </div>
   `;
 
   attachUiHandlers(root);
-
-  if (shouldRestoreSearchFocus) {
-    const nextSearchInput = root.querySelector(".lm-search-input");
-    nextSearchInput?.focus({ preventScroll: true });
-    if (
-      nextSearchInput &&
-      searchSelectionStart !== null &&
-      searchSelectionEnd !== null
-    ) {
-      nextSearchInput.setSelectionRange(
-        searchSelectionStart,
-        searchSelectionEnd,
-      );
-    }
-  }
 }
 
 function attachUiHandlers(root) {
   const panel = root.querySelector(".lm-panel");
   const toggle = root.querySelector(".lm-toggle");
-  const searchInput = root.querySelector(".lm-search-input");
   const minimize = root.querySelector('[data-action="minimize-to-icon"]');
   const iconLauncher = root.querySelector(".lm-icon-launcher");
 
@@ -651,11 +596,6 @@ function attachUiHandlers(root) {
 
   iconLauncher?.addEventListener("click", () => {
     setBarMode("closed");
-    renderBar();
-  });
-
-  searchInput?.addEventListener("input", (event) => {
-    searchQuery = event.target.value;
     renderBar();
   });
 
@@ -759,20 +699,6 @@ function attachUiHandlers(root) {
             renderBar();
             break;
           }
-          case "toggle-favorite": {
-            const result = await sendMessage({
-              type: "toggle-favorite",
-              payload: { id },
-            });
-            replaceEntryInLocalState(result.entry);
-            flashMessage(
-              result.enabled
-                ? "Link aggiunto ai favoriti"
-                : "Link rimosso dai favoriti",
-            );
-            renderBar();
-            break;
-          }
           case "bookmark-current": {
             const result = await sendMessage({
               type: "bookmark-link",
@@ -810,17 +736,6 @@ function attachUiHandlers(root) {
             }
             break;
           }
-          case "open":
-            await sendMessage({
-              type: "open-link",
-              payload: { id, active: true, openInNewTab: true },
-            });
-            break;
-          case "remove":
-            await sendMessage({ type: "remove-link", payload: { id } });
-            removeEntryFromLocalState(id);
-            renderBar();
-            break;
           case "save-open-tabs": {
             const result = await sendMessage({ type: "save-open-tabs" });
             flashMessage(formatBatchSaveMessage(result));
@@ -1125,7 +1040,6 @@ function installStyles() {
 
     #${ROOT_ID} .lm-toolbar {
       display: flex;
-      align-items: flex-start;
       justify-content: space-between;
       gap: 12px;
       flex-wrap: wrap;
@@ -1141,7 +1055,7 @@ function installStyles() {
     }
 
     #${ROOT_ID} .lm-toolbar-actions,
-    #${ROOT_ID} .lm-entry-actions {
+    #${ROOT_ID} .lm-current-actions {
       display: flex;
       gap: 8px;
       flex-wrap: wrap;
@@ -1152,8 +1066,7 @@ function installStyles() {
       margin-left: auto;
     }
 
-    #${ROOT_ID} .lm-toolbar-actions button,
-    #${ROOT_ID} .lm-entry-actions button {
+    #${ROOT_ID} .lm-toolbar-actions button {
       padding: 8px;
       border-radius: 999px;
       background: rgba(255, 255, 255, 0.12);
@@ -1242,88 +1155,6 @@ function installStyles() {
       gap: 8px;
     }
 
-    #${ROOT_ID} .lm-search-shell {
-      padding: 0 16px 12px;
-    }
-
-    #${ROOT_ID} .lm-search {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      width: 100%;
-      padding: 10px 12px;
-      border-radius: 12px;
-      background: rgba(255, 255, 255, 0.08);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-    }
-
-    #${ROOT_ID} .lm-search-input {
-      all: unset;
-      flex: 1;
-      min-width: 0;
-      color: #f4efe6;
-      font: inherit;
-    }
-
-    #${ROOT_ID} .lm-search-input::placeholder {
-      color: rgba(244, 239, 230, 0.55);
-    }
-
-    #${ROOT_ID} .lm-list {
-      list-style: none;
-      margin: 0;
-      padding: 0 8px 8px;
-      max-height: min(42vh, 320px);
-      overflow: auto;
-    }
-
-    #${ROOT_ID} .lm-entry,
-    #${ROOT_ID} .lm-empty {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 10px;
-      padding: 8px;
-      border-radius: 12px;
-      margin-bottom: 8px;
-      background: rgba(255, 255, 255, 0.06);
-    }
-
-    #${ROOT_ID} .lm-entry-open {
-      display: grid;
-      gap: 3px;
-      flex: 1;
-      min-width: 0;
-      padding: 0;
-      background: transparent;
-      color: inherit;
-      text-align: left;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    #${ROOT_ID} .lm-entry-title,
-    #${ROOT_ID} .lm-entry-url {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    #${ROOT_ID} .lm-entry-url {
-      opacity: 0.66;
-      font-size: 12px;
-    }
-
-    #${ROOT_ID} .lm-entry-actions {
-      flex-shrink: 0;
-    }
-
-    #${ROOT_ID} .lm-empty {
-      justify-content: center;
-      opacity: 0.75;
-    }
-
     #${ROOT_ID} .lm-toast,
     #link-manager-toast-host .lm-toast {
       position: absolute;
@@ -1397,21 +1228,6 @@ function installStyles() {
   `;
 
   document.documentElement.appendChild(style);
-}
-
-function filterEntries(query, entries) {
-  const normalizedQuery = query.trim().toLowerCase();
-  if (!normalizedQuery) {
-    return [];
-  }
-
-  return entries
-    .filter((entry) =>
-      [entry.title, entry.url, entry.pageUrl]
-        .filter(Boolean)
-        .some((value) => value.toLowerCase().includes(normalizedQuery)),
-    )
-    .slice(0, 40);
 }
 
 function formatSaveFeedback(status) {
