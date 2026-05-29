@@ -28,6 +28,8 @@ const saveButton = document.getElementById("saveButton");
 const importFolderButton = document.getElementById("importFolderButton");
 const sendMagicLinkButton = document.getElementById("sendMagicLinkButton");
 const syncNowButton = document.getElementById("syncNowButton");
+const debugSyncButton = document.getElementById("debugSyncButton");
+const debugSyncOutputNode = document.getElementById("debugSyncOutput");
 const signOutButton = document.getElementById("signOutButton");
 
 init();
@@ -36,6 +38,7 @@ saveButton.addEventListener("click", saveSettings);
 importFolderButton.addEventListener("click", importFolder);
 sendMagicLinkButton.addEventListener("click", sendMagicLink);
 syncNowButton.addEventListener("click", syncNow);
+debugSyncButton.addEventListener("click", debugSyncState);
 signOutButton.addEventListener("click", signOut);
 barVisibilityModeInput.addEventListener("change", syncBarVisibilityState);
 openArchivePageButton.addEventListener("click", openArchivePage);
@@ -153,6 +156,28 @@ async function signOut() {
     setStatus(error.message || "Errore disconnessione", true);
   } finally {
     setButtonBusy(signOutButton, false);
+  }
+}
+
+async function debugSyncState() {
+  try {
+    setButtonBusy(debugSyncButton, true, "Confronto...");
+    const result = await sendMessage({ type: "debug-sync-diff" });
+    debugSyncOutputNode.textContent = formatSyncDiagnostic(result);
+
+    if (result.summary.localOnlyCount) {
+      setStatus(
+        `Trovati ${result.summary.localOnlyCount} link solo in locale`,
+        true,
+      );
+    } else {
+      setStatus("Locale e remoto risultano allineati");
+    }
+  } catch (error) {
+    debugSyncOutputNode.textContent = "";
+    setStatus(error.message || "Errore confronto sync", true);
+  } finally {
+    setButtonBusy(debugSyncButton, false);
   }
 }
 
@@ -322,6 +347,46 @@ function formatImportMessage(result) {
   }
 
   return parts.length ? parts.join(" • ") : "Nessun nuovo link da importare";
+}
+
+function formatSyncDiagnostic(result) {
+  const sections = [
+    `Locale: ${result.summary.localCount}`,
+    `Remoto: ${result.summary.remoteCount}`,
+    `Solo locale: ${result.summary.localOnlyCount}`,
+    `Solo remoto: ${result.summary.remoteOnlyCount}`,
+    `Differenze campi: ${result.summary.mismatchedCount}`,
+    `Pending upsert: ${result.summary.pendingUpserts}`,
+    `Pending delete: ${result.summary.pendingDeletes}`,
+    `Last sync revision: ${result.summary.lastSyncRevision || "-"}`,
+  ];
+
+  if (result.localOnly.length) {
+    sections.push("\nLink presenti solo in locale:");
+    for (const entry of result.localOnly) {
+      sections.push(
+        `- ${entry.title} | ${entry.url} | pendingUpsert=${entry.pendingUpsert} pendingDelete=${entry.pendingDelete} remoteDeleted=${entry.remoteDeleted}`,
+      );
+    }
+  }
+
+  if (result.remoteOnly.length) {
+    sections.push("\nLink presenti solo in remoto:");
+    for (const entry of result.remoteOnly) {
+      sections.push(`- ${entry.title} | ${entry.url}`);
+    }
+  }
+
+  if (result.mismatched.length) {
+    sections.push("\nLink con campi divergenti:");
+    for (const entry of result.mismatched) {
+      sections.push(
+        `- ${entry.normalizedUrl} | differenze: ${entry.differences.join(", ")}`,
+      );
+    }
+  }
+
+  return sections.join("\n");
 }
 
 function escapeHtml(value) {

@@ -154,6 +154,8 @@ async function handleMessage(message, sender) {
       return signOutSupabase();
     case "sync-supabase":
       return syncSupabase();
+    case "debug-sync-diff":
+      return debugSyncDiff();
     default:
       throw new Error("Unsupported message type");
   }
@@ -178,8 +180,8 @@ async function handleContextMenuSave(info, tab) {
         pageUrl: info.pageUrl || tab?.url || null,
       },
     ]);
-
     await sendToastToTab(tab?.id, formatSaveStatusMessage(result.status));
+    await sendStateToTab(tab?.id);
   } catch (error) {
     await sendToastToTab(
       tab?.id,
@@ -620,6 +622,139 @@ async function syncSupabase() {
     syncedCount: mergedEntries.length,
     changesPulled: appliedRemoteLinks.length,
     lastSyncAt: await getLastSyncAt(),
+  };
+}
+
+async function debugSyncDiff() {
+  const session = await ensureValidAuthSession();
+  if (!session?.user?.id) {
+    throw new Error("Effettua prima l'accesso con magic link");
+  }
+
+  const [localEntries, remoteLinks, pendingSync, lastSyncRevision] =
+    await Promise.all([
+      getEntries(),
+      fetchRemoteLinks(session, null),
+      getPendingSync(),
+      getLastSyncRevision(),
+    ]);
+
+  const remoteActiveByUrl = new Map();
+  const remoteDeletedUrls = new Set();
+
+  for (const remoteLink of remoteLinks) {
+    if (remoteLink.deleted_at) {
+      remoteDeletedUrls.add(remoteLink.normalized_url);
+      remoteActiveByUrl.delete(remoteLink.normalized_url);
+      continue;
+    }
+
+    remoteActiveByUrl.set(remoteLink.normalized_url, remoteLink);
+  }
+
+  const localByUrl = new Map(
+    localEntries.map((entry) => [entry.normalizedUrl, entry]),
+  );
+
+  const localOnly = localEntries
+    .filter((entry) => !remoteActiveByUrl.has(entry.normalizedUrl))
+    .map((entry) => ({
+      id: entry.id,
+      normalizedUrl: entry.normalizedUrl,
+      url: entry.url,
+      title: entry.title,
+      pageUrl: entry.pageUrl || null,
+      isSeen: Boolean(entry.isSeen),
+      isFavorite: Boolean(entry.isFavorite),
+      updatedAt: entry.updatedAt || null,
+      revisionId: entry.revisionId || null,
+      pendingUpsert: Boolean(pendingSync.upserts?.[entry.normalizedUrl]),
+      pendingDelete: Boolean(pendingSync.deletes?.[entry.normalizedUrl]),
+      remoteDeleted: remoteDeletedUrls.has(entry.normalizedUrl),
+    }));
+
+  const remoteOnly = [...remoteActiveByUrl.values()]
+    .filter((remoteLink) => !localByUrl.has(remoteLink.normalized_url))
+    .map((remoteLink) => ({
+      id: remoteLink.id,
+      normalizedUrl: remoteLink.normalized_url,
+      url: remoteLink.url,
+      title: remoteLink.title,
+      pageUrl: remoteLink.page_url || null,
+      isSeen: Boolean(remoteLink.is_seen),
+      isFavorite: Boolean(remoteLink.is_favorite),
+      updatedAt: remoteLink.updated_at || remoteLink.created_at || null,
+      revisionId: normalizeRevisionId(remoteLink.revision_id),
+    }));
+
+  const mismatched = localEntries
+    .filter((entry) => remoteActiveByUrl.has(entry.normalizedUrl))
+    .map((entry) => {
+      const remoteLink = remoteActiveByUrl.get(entry.normalizedUrl);
+      const differences = [];
+
+      if (entry.url !== remoteLink.url) {
+        differences.push("url");
+      }
+      if (entry.title !== remoteLink.title) {
+        differences.push("title");
+      }
+      if ((entry.pageUrl || null) !== (remoteLink.page_url || null)) {
+        differences.push("pageUrl");
+      }
+      if (Boolean(entry.isSeen) !== Boolean(remoteLink.is_seen)) {
+        differences.push("isSeen");
+      }
+      if (Boolean(entry.isFavorite) !== Boolean(remoteLink.is_favorite)) {
+        differences.push("isFavorite");
+      }
+
+      if (!differences.length) {
+        return null;
+      }
+
+      return {
+        normalizedUrl: entry.normalizedUrl,
+        differences,
+        local: {
+          id: entry.id,
+          url: entry.url,
+          title: entry.title,
+          pageUrl: entry.pageUrl || null,
+          isSeen: Boolean(entry.isSeen),
+          isFavorite: Boolean(entry.isFavorite),
+          updatedAt: entry.updatedAt || null,
+          revisionId: entry.revisionId || null,
+        },
+        remote: {
+          id: remoteLink.id,
+          url: remoteLink.url,
+          title: remoteLink.title,
+          pageUrl: remoteLink.page_url || null,
+          isSeen: Boolean(remoteLink.is_seen),
+          isFavorite: Boolean(remoteLink.is_favorite),
+          updatedAt: remoteLink.updated_at || remoteLink.created_at || null,
+          revisionId: normalizeRevisionId(remoteLink.revision_id),
+        },
+      };
+    })
+    .filter(Boolean);
+
+  return {
+    summary: {
+      localCount: localEntries.length,
+      remoteCount: remoteActiveByUrl.size,
+      remoteDeletedCount: remoteDeletedUrls.size,
+      localOnlyCount: localOnly.length,
+      remoteOnlyCount: remoteOnly.length,
+      mismatchedCount: mismatched.length,
+      pendingUpserts: Object.keys(pendingSync.upserts || {}).length,
+      pendingDeletes: Object.keys(pendingSync.deletes || {}).length,
+      lastSyncRevision,
+    },
+    localOnly,
+    remoteOnly,
+    mismatched,
   };
 }
 
@@ -1663,4 +1798,11 @@ async function broadcastState() {
   //         .catch(() => undefined),
   //     ),
   // );
+}
+
+async function sendStateToTab(tabId) {
+  const state = await getState();
+  await chrome.tabs
+    .sendMessage(tabId, { type: "state-updated", payload: state })
+    .catch(() => undefined);
 }

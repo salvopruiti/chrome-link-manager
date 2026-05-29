@@ -1,4 +1,5 @@
 const ROOT_ID = "link-manager-root";
+const WRAPPER_ID = "link-manager-wrapper";
 const STYLE_ID = "link-manager-style";
 const BAR_MODE_STORAGE_KEY = "link-manager-bar-mode";
 
@@ -20,6 +21,7 @@ let barMode = "closed";
 let searchQuery = "";
 let currentPageState = createEmptyCurrentPageState();
 let pendingAction = null;
+let toastTimeoutId = null;
 
 bootstrap();
 
@@ -151,7 +153,27 @@ function matchesHostnamePattern(hostname, pattern) {
 }
 
 function removeBarRoot() {
-  document.getElementById(ROOT_ID)?.remove();
+  document.getElementById(WRAPPER_ID)?.remove();
+}
+
+function getBarWrapper() {
+  let wrapper = document.getElementById(WRAPPER_ID);
+  if (!wrapper) {
+    wrapper = document.createElement("div");
+    wrapper.id = WRAPPER_ID;
+  }
+
+  return wrapper;
+}
+
+function getToastHost() {
+  let host = document.getElementById("link-manager-toast-host");
+  if (!host) {
+    host = document.createElement("div");
+    host.id = "link-manager-toast-host";
+  }
+
+  return host;
 }
 
 async function handleDocumentClick(event) {
@@ -200,6 +222,10 @@ async function handleDocumentClick(event) {
 }
 
 function shouldCaptureClick(event) {
+  if (!shouldShowBarForCurrentSite(extensionState.settings)) {
+    return false;
+  }
+
   if (extensionState.settings.captureAllClicks && !event.shiftKey) {
     return true;
   }
@@ -446,13 +472,15 @@ function renderBar() {
     return;
   }
 
+  const wrapper = getBarWrapper();
+  const toastHost = getToastHost();
   let root = document.getElementById(ROOT_ID);
   if (!root) {
     root = document.createElement("div");
     root.id = ROOT_ID;
   }
 
-  placeRoot(root);
+  placeRoot(wrapper, toastHost, root);
 
   const previousSearchInput = root.querySelector(".lm-search-input");
   const shouldRestoreSearchFocus =
@@ -835,12 +863,20 @@ function attachUiHandlers(root) {
   });
 }
 
-function placeRoot(root) {
+function placeRoot(wrapper, toastHost, root) {
+  if (toastHost.parentElement !== wrapper) {
+    wrapper.appendChild(toastHost);
+  }
+
+  if (root.parentElement !== wrapper) {
+    wrapper.appendChild(root);
+  }
+
   if (
-    root.parentElement !== document.body ||
-    document.body.lastChild !== root
+    wrapper.parentElement !== document.body ||
+    document.body.lastChild !== wrapper
   ) {
-    document.body.appendChild(root);
+    document.body.appendChild(wrapper);
   }
 }
 
@@ -870,14 +906,18 @@ function installStyles() {
   const style = document.createElement("style");
   style.id = STYLE_ID;
   style.textContent = `
-    #${ROOT_ID} {
+    #${WRAPPER_ID} {
       all: initial;
-      display: block;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 12px;
       position: fixed;
       right: 16px;
       bottom: 16px;
       z-index: 2147483647;
       overflow: visible;
+      pointer-events: none;
       font-family: "Segoe UI", sans-serif;
       font-size: 14px;
       line-height: 1.4;
@@ -887,9 +927,25 @@ function installStyles() {
       text-size-adjust: none;
     }
 
+    #${WRAPPER_ID},
+    #${WRAPPER_ID} *,
     #${ROOT_ID},
     #${ROOT_ID} * {
       box-sizing: border-box;
+    }
+
+    #${ROOT_ID} {
+      display: block;
+      overflow: visible;
+      pointer-events: auto;
+    }
+
+    #link-manager-toast-host {
+      display: block;
+      width: 100%;
+      overflow: visible;
+      pointer-events: none;
+      position: relative;
     }
 
     #${ROOT_ID} .lm-shell {
@@ -1268,11 +1324,12 @@ function installStyles() {
       opacity: 0.75;
     }
 
-    #${ROOT_ID} .lm-toast {
+    #${ROOT_ID} .lm-toast,
+    #link-manager-toast-host .lm-toast {
       position: absolute;
       left: 0;
       right: 0;
-      bottom: calc(100% + 12px);
+      bottom: 0;
       margin: 0 auto;
       width: fit-content;
       max-width: min(320px, calc(100vw - 48px));
@@ -1317,7 +1374,8 @@ function installStyles() {
       color: #fff;
     }
 
-    #${ROOT_ID} .lm-toast.is-error {
+    #${ROOT_ID} .lm-toast.is-error,
+    #link-manager-toast-host .lm-toast.is-error {
       background: rgba(167, 47, 47, 0.96);
       color: #fff;
     }
@@ -1417,32 +1475,31 @@ function spinnerMarkup() {
 }
 
 function flashMessage(text, isError = false) {
-  const root = document.getElementById(ROOT_ID);
-  if (root) {
-    const existingToast = root.querySelector(".lm-toast");
-    existingToast?.remove();
-
-    const toast = document.createElement("div");
-    toast.className = `lm-toast${isError ? " is-error" : ""}`;
-    toast.textContent = text;
-    root.appendChild(toast);
-
-    window.setTimeout(() => toast.remove(), 10000);
-    return;
+  if (toastTimeoutId !== null) {
+    window.clearTimeout(toastTimeoutId);
+    toastTimeoutId = null;
   }
 
-  const existingPageNotice = document.getElementById(
-    "link-manager-page-notice",
-  );
-  existingPageNotice?.remove();
+  const host = getToastHost();
+  if (!host.isConnected) {
+    (document.body || document.documentElement)?.appendChild(host);
+  }
 
+  const existingToast = host.querySelector(".lm-toast, .lm-page-notice");
+  existingToast?.remove();
+
+  const root = document.getElementById(ROOT_ID);
   const notice = document.createElement("div");
-  notice.id = "link-manager-page-notice";
-  notice.className = `lm-page-notice${isError ? " is-error" : ""}`;
+  notice.className = root
+    ? `lm-toast${isError ? " is-error" : ""}`
+    : `lm-page-notice${isError ? " is-error" : ""}`;
   notice.textContent = text;
-  document.documentElement.appendChild(notice);
+  host.appendChild(notice);
 
-  window.setTimeout(() => notice.remove(), 10000);
+  toastTimeoutId = window.setTimeout(() => {
+    notice.remove();
+    toastTimeoutId = null;
+  }, 10000);
 }
 
 function escapeHtml(value) {
