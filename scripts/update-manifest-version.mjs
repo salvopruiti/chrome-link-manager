@@ -14,5 +14,9 @@ const manifest = JSON.parse(manifestRaw);
 
 manifest.version = version;
 
-fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+fs.writeFileSync(
+  manifestPath,
+  `${JSON.stringify(manifest, null, 2)}\n`,
+  "utf8",
+);
 console.log(`manifest.json updated to version ${version}`);

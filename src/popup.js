@@ -67,16 +67,14 @@ function applyStaticI18n() {
   const uiLang = chrome.i18n.getUILanguage();
   document.documentElement.lang = uiLang?.startsWith("it") ? "it" : "en";
 
-  document.documentElement
-    .querySelectorAll("[data-i18n]")
-    .forEach((node) => {
-      const key = node.getAttribute("data-i18n");
-      if (!key) {
-        return;
-      }
+  document.documentElement.querySelectorAll("[data-i18n]").forEach((node) => {
+    const key = node.getAttribute("data-i18n");
+    if (!key) {
+      return;
+    }
 
-      node.textContent = t(key);
-    });
+    node.textContent = t(key);
+  });
 
   document.documentElement
     .querySelectorAll("[data-i18n-placeholder]")

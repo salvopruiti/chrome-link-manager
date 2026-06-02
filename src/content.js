@@ -717,9 +717,7 @@ function attachUiHandlers(root) {
             });
             replaceEntryInLocalState(result.entry);
             flashMessage(
-              result.enabled
-                ? t("page_marked_seen")
-                : t("page_marked_unseen"),
+              result.enabled ? t("page_marked_seen") : t("page_marked_unseen"),
             );
             renderBar();
             break;

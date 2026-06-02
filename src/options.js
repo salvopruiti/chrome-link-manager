@@ -103,16 +103,14 @@ function applyStaticI18n() {
   const uiLang = chrome.i18n.getUILanguage();
   document.documentElement.lang = uiLang?.startsWith("it") ? "it" : "en";
 
-  document.documentElement
-    .querySelectorAll("[data-i18n]")
-    .forEach((node) => {
-      const key = node.getAttribute("data-i18n");
-      if (!key) {
-        return;
-      }
+  document.documentElement.querySelectorAll("[data-i18n]").forEach((node) => {
+    const key = node.getAttribute("data-i18n");
+    if (!key) {
+      return;
+    }
 
-      node.textContent = t(key);
-    });
+    node.textContent = t(key);
+  });
 
   document.documentElement
     .querySelectorAll("[data-i18n-placeholder]")
@@ -198,7 +196,10 @@ async function debugSyncState() {
     debugSyncOutputNode.textContent = formatSyncDiagnostic(result);
 
     if (result.summary.localOnlyCount) {
-      setStatus(t("found_local_only_links", [String(result.summary.localOnlyCount)]), true);
+      setStatus(
+        t("found_local_only_links", [String(result.summary.localOnlyCount)]),
+        true,
+      );
     } else {
       setStatus(t("local_remote_aligned"));
     }
