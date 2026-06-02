@@ -1,3 +1,10 @@
+# 1.0.0 (2026-06-02)
+
+
+### Features
+
+* add semantic-release configuration and GitHub Actions workflow ([72ed716](https://github.com/salvopruiti/chrome-link-manager/commit/72ed7165b9c4a1d56c87e4ec8e3224c155ad3809))
+
 # Changelog
 
 This file collects the main project changes, grouped by version based on the git history.

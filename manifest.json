@@ -1,27 +1,44 @@
 {
   "manifest_version": 3,
   "name": "Link Manager",
-  "version": "0.4.1",
+  "version": "1.0.0",
   "description": "__MSG_description__",
   "default_locale": "en",
-  "permissions": ["storage", "bookmarks", "tabs", "contextMenus", "alarms"],
-  "host_permissions": ["<all_urls>"],
+  "permissions": [
+    "storage",
+    "bookmarks",
+    "tabs",
+    "contextMenus",
+    "alarms"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
   "background": {
     "service_worker": "src/background.js",
     "type": "module"
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
-      "js": ["src/content.js"],
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "src/content.js"
+      ],
       "run_at": "document_start"
     }
   ],
   "options_page": "src/options.html",
   "web_accessible_resources": [
     {
-      "resources": ["src/auth-callback.html", "src/auth-callback.js"],
-      "matches": ["<all_urls>"]
+      "resources": [
+        "src/auth-callback.html",
+        "src/auth-callback.js"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
     }
   ],
   "action": {
