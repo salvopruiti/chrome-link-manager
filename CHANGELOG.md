@@ -2,7 +2,7 @@
 
 This file collects the main project changes, grouped by version based on the git history.
 
-## Unreleased
+## 0.4.0 - 2026-06-02
 
 - Global persistence of the bar state in `chrome.storage.local`, with fallback and migration from the previous per-site save in `localStorage`.
 - In-page bar: the quick row remains visible in reduced mode, is hidden only when the panel is open, and the back/forward buttons are also available in the `Current page` box.
