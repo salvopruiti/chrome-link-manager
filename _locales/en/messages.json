@@ -540,6 +540,31 @@
   "compare_local_remote": {
     "message": "Compare local and remote"
   },
+  "fix_local_remote": {
+    "message": "Compare and fix"
+  },
+  "fixing": {
+    "message": "Fixing..."
+  },
+  "sync_fix_completed": {
+    "message": "Fix completed: $count$ entries updated",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "sync_fix_remaining": {
+    "message": "Partial fix: $count$ differences still present",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "sync_fix_error": {
+    "message": "Sync fix error"
+  },
   "sign_out": {
     "message": "Sign out"
   },

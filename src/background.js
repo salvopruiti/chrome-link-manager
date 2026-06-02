@@ -156,6 +156,8 @@ async function handleMessage(message, sender) {
       return syncSupabase();
     case "debug-sync-diff":
       return debugSyncDiff();
+    case "debug-sync-fix":
+      return debugSyncFix();
     default:
       throw new Error("Unsupported message type");
   }
@@ -758,6 +760,65 @@ async function debugSyncDiff() {
   };
 }
 
+async function debugSyncFix() {
+  const session = await ensureValidAuthSession();
+  if (!session?.user?.id) {
+    throw new Error("Effettua prima l'accesso con magic link");
+  }
+
+  await flushPendingSync(session);
+
+  const beforeDiff = await debugSyncDiff();
+  const localUpserts = [
+    ...beforeDiff.localOnly
+      .filter((entry) => !entry.remoteDeleted && !entry.pendingDelete)
+      .map((entry) =>
+        toRemoteUpsertEntry({
+          id: entry.id,
+          normalizedUrl: entry.normalizedUrl,
+          url: entry.url,
+          title: entry.title,
+          pageUrl: entry.pageUrl,
+          isSeen: entry.isSeen,
+          isFavorite: entry.isFavorite,
+          createdAt: entry.updatedAt || new Date().toISOString(),
+          updatedAt: entry.updatedAt || new Date().toISOString(),
+        }),
+      ),
+    ...beforeDiff.mismatched.map((entry) =>
+      toRemoteUpsertEntry({
+        ...entry.local,
+        normalizedUrl: entry.normalizedUrl,
+        createdAt: entry.local.updatedAt || new Date().toISOString(),
+      }),
+    ),
+  ];
+
+  if (localUpserts.length) {
+    await upsertLinksToSupabase(localUpserts, session);
+  }
+
+  const previousRevision = await getLastSyncRevision();
+  const remoteLinks = await fetchRemoteLinks(session, null);
+  const mergedEntries = mergeEntriesForSync([], remoteLinks);
+
+  await setEntries(mergedEntries);
+  await setLastSyncAt(new Date().toISOString());
+  await setLastSyncRevision(getLatestRevisionId(previousRevision, remoteLinks));
+  await setSyncUserId(session.user.id);
+  void broadcastState();
+
+  const afterDiff = await debugSyncDiff();
+  return {
+    fixedUpserts: localUpserts.length,
+    before: beforeDiff.summary,
+    summary: afterDiff.summary,
+    localOnly: afterDiff.localOnly,
+    remoteOnly: afterDiff.remoteOnly,
+    mismatched: afterDiff.mismatched,
+  };
+}
+
 async function ensureValidAuthSession() {
   const session = await getAuthSession();
   if (!session?.accessToken || !session?.refreshToken) {
@@ -890,6 +951,23 @@ function serializePendingUpsert(entry) {
     pageUrl: entry.pageUrl || null,
     createdAt: entry.createdAt,
     updatedAt: entry.updatedAt || entry.createdAt,
+    isSeen: Boolean(entry.isSeen),
+    seenAt: entry.seenAt || null,
+    isFavorite: Boolean(entry.isFavorite),
+    favoritedAt: entry.favoritedAt || null,
+  };
+}
+
+function toRemoteUpsertEntry(entry) {
+  const now = new Date().toISOString();
+  return {
+    id: entry.id,
+    url: entry.url,
+    normalizedUrl: entry.normalizedUrl,
+    title: entry.title,
+    pageUrl: entry.pageUrl || null,
+    createdAt: entry.createdAt || entry.updatedAt || now,
+    updatedAt: entry.updatedAt || now,
     isSeen: Boolean(entry.isSeen),
     seenAt: entry.seenAt || null,
     isFavorite: Boolean(entry.isFavorite),

@@ -29,6 +29,7 @@ const importFolderButton = document.getElementById("importFolderButton");
 const sendMagicLinkButton = document.getElementById("sendMagicLinkButton");
 const syncNowButton = document.getElementById("syncNowButton");
 const debugSyncButton = document.getElementById("debugSyncButton");
+const fixSyncButton = document.getElementById("fixSyncButton");
 const debugSyncOutputNode = document.getElementById("debugSyncOutput");
 const signOutButton = document.getElementById("signOutButton");
 
@@ -43,6 +44,7 @@ importFolderButton.addEventListener("click", importFolder);
 sendMagicLinkButton.addEventListener("click", sendMagicLink);
 syncNowButton.addEventListener("click", syncNow);
 debugSyncButton.addEventListener("click", debugSyncState);
+fixSyncButton.addEventListener("click", fixSyncState);
 signOutButton.addEventListener("click", signOut);
 barVisibilityModeInput.addEventListener("change", syncBarVisibilityState);
 openArchivePageButton.addEventListener("click", openArchivePage);
@@ -208,6 +210,34 @@ async function debugSyncState() {
     setStatus(error.message || t("sync_compare_error"), true);
   } finally {
     setButtonBusy(debugSyncButton, false);
+  }
+}
+
+async function fixSyncState() {
+  try {
+    setButtonBusy(fixSyncButton, true, t("fixing"));
+    const result = await sendMessage({ type: "debug-sync-fix" });
+    debugSyncOutputNode.textContent = formatSyncDiagnostic(result);
+    await refreshState();
+
+    if (result.summary.localOnlyCount || result.summary.mismatchedCount) {
+      setStatus(
+        t("sync_fix_remaining", [
+          String(
+            result.summary.localOnlyCount + result.summary.mismatchedCount,
+          ),
+        ]),
+        true,
+      );
+      return;
+    }
+
+    setStatus(t("sync_fix_completed", [String(result.fixedUpserts || 0)]));
+  } catch (error) {
+    debugSyncOutputNode.textContent = "";
+    setStatus(error.message || t("sync_fix_error"), true);
+  } finally {
+    setButtonBusy(fixSyncButton, false);
   }
 }
 

@@ -540,6 +540,31 @@
   "compare_local_remote": {
     "message": "Confronta locale e remoto"
   },
+  "fix_local_remote": {
+    "message": "Confronta e correggi"
+  },
+  "fixing": {
+    "message": "Correzione..."
+  },
+  "sync_fix_completed": {
+    "message": "Correzione completata: $count$ elementi aggiornati",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "sync_fix_remaining": {
+    "message": "Correzione parziale: $count$ differenze residue",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "sync_fix_error": {
+    "message": "Errore correzione sync"
+  },
   "sign_out": {
     "message": "Esci"
   },
