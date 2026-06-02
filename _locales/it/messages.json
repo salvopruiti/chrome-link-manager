@@ -1,0 +1,558 @@
+{
+  "description": {
+    "message": "Salva e gestisci i tuoi link preferiti"
+  },
+  "link_manager_name": {
+    "message": "Link Manager"
+  },
+  "not_saved": {
+    "message": "Non salvata"
+  },
+  "saved": {
+    "message": "Salvata ($date$)",
+    "placeholders": {
+      "date": {
+        "content": "$1"
+      }
+    }
+  },
+  "favorite": {
+    "message": "Favorita"
+  },
+  "viewed": {
+    "message": "Già vista ($date$)",
+    "placeholders": {
+      "date": {
+        "content": "$1"
+      }
+    }
+  },
+  "open_link_manager": {
+    "message": "Apri Link Manager"
+  },
+  "minimize_to_icon": {
+    "message": "Riduci a icona"
+  },
+  "capture_clicks": {
+    "message": "Cattura tutti i clic"
+  },
+  "previous_link": {
+    "message": "Link precedente"
+  },
+  "next_link": {
+    "message": "Link successivo"
+  },
+  "open_random_link": {
+    "message": "Apri link casuale"
+  },
+  "current_page": {
+    "message": "Pagina corrente"
+  },
+  "refresh": {
+    "message": "Aggiorna"
+  },
+  "save_all_tabs": {
+    "message": "Salva tutte le schede"
+  },
+  "sync_with_supabase": {
+    "message": "Sincronizza con Supabase"
+  },
+  "sync_status": {
+    "message": "Stato sincronizzazione: $status$",
+    "placeholders": {
+      "status": {
+        "content": "$1"
+      }
+    }
+  },
+  "operation_completed": {
+    "message": "Operazione completata"
+  },
+  "operation_failed": {
+    "message": "Operazione fallita"
+  },
+  "save_error": {
+    "message": "Errore salvataggio"
+  },
+  "auto_save_ignored_click": {
+    "message": "Salvataggio automatico ignorato per questo click"
+  },
+  "remove": {
+    "message": "Rimuovi"
+  },
+  "add": {
+    "message": "Aggiungi"
+  },
+  "current_link": {
+    "message": "link corrente"
+  },
+  "mark_seen": {
+    "message": "Segna visto"
+  },
+  "unmark_seen": {
+    "message": "Togli visto"
+  },
+  "mark_favorite": {
+    "message": "Segna favorito"
+  },
+  "unmark_favorite": {
+    "message": "Togli favorito"
+  },
+  "capture_auto_active": {
+    "message": "Click automatico attivo"
+  },
+  "capture_mode_click": {
+    "message": "Click"
+  },
+  "capture_mode_shift_click": {
+    "message": "Shift+Click"
+  },
+  "page_marked_seen": {
+    "message": "Pagina segnata come vista"
+  },
+  "page_marked_unseen": {
+    "message": "Pagina segnata come non vista"
+  },
+  "page_added_favorites": {
+    "message": "Pagina aggiunta ai favoriti"
+  },
+  "page_removed_favorites": {
+    "message": "Pagina rimossa dai favoriti"
+  },
+  "page_already_in_favorites": {
+    "message": "Pagina gia tra i favoriti"
+  },
+  "page_removed_database": {
+    "message": "Pagina rimossa dal database"
+  },
+  "page_not_in_database": {
+    "message": "Pagina non presente nel database"
+  },
+  "auto_save_links_enabled": {
+    "message": "Salvataggio automatico link attivato"
+  },
+  "auto_save_links_disabled": {
+    "message": "Salvataggio automatico link disattivato"
+  },
+  "link_already_present": {
+    "message": "Link gia presente"
+  },
+  "link_already_viewed": {
+    "message": "Link gia visto"
+  },
+  "link_updated": {
+    "message": "Link aggiornato"
+  },
+  "link_saved": {
+    "message": "Link salvato"
+  },
+  "no_compatible_tabs_found": {
+    "message": "Nessuna scheda compatibile trovata"
+  },
+  "batch_saved_count": {
+    "message": "$count$ salvate",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "batch_updated_count": {
+    "message": "$count$ aggiornate",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "batch_duplicate_count": {
+    "message": "$count$ gia presenti",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "no_new_tabs_to_save": {
+    "message": "Nessuna nuova scheda da salvare"
+  },
+  "unable_load_settings": {
+    "message": "Impossibile caricare le impostazioni"
+  },
+  "settings_saved": {
+    "message": "Impostazioni salvate"
+  },
+  "settings_save_error": {
+    "message": "Errore salvataggio impostazioni"
+  },
+  "sending": {
+    "message": "Invio..."
+  },
+  "magic_link_sent_to": {
+    "message": "Magic link inviato a $email$",
+    "placeholders": {
+      "email": {
+        "content": "$1"
+      }
+    }
+  },
+  "magic_link_send_error": {
+    "message": "Errore invio magic link"
+  },
+  "sync_in_progress_short": {
+    "message": "Sync..."
+  },
+  "synced_links_count": {
+    "message": "Sincronizzati $count$ link",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "sync_error": {
+    "message": "Errore sincronizzazione"
+  },
+  "signing_out": {
+    "message": "Uscita..."
+  },
+  "sign_out_completed": {
+    "message": "Disconnessione completata"
+  },
+  "sign_out_error": {
+    "message": "Errore disconnessione"
+  },
+  "comparing": {
+    "message": "Confronto..."
+  },
+  "found_local_only_links": {
+    "message": "Trovati $count$ link solo in locale",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "local_remote_aligned": {
+    "message": "Locale e remoto risultano allineati"
+  },
+  "sync_compare_error": {
+    "message": "Errore confronto sync"
+  },
+  "connected_as": {
+    "message": "Connesso come $email$",
+    "placeholders": {
+      "email": {
+        "content": "$1"
+      }
+    }
+  },
+  "user_generic": {
+    "message": "utente"
+  },
+  "not_authenticated": {
+    "message": "Non autenticato"
+  },
+  "never": {
+    "message": "Mai"
+  },
+  "sync_in_progress": {
+    "message": "Sync in corso"
+  },
+  "pending_changes_count": {
+    "message": "$count$ modifiche in coda",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "no_changes_queued": {
+    "message": "Nessuna modifica in coda"
+  },
+  "not_scheduled": {
+    "message": "Non pianificato"
+  },
+  "select_folder": {
+    "message": "Seleziona una cartella"
+  },
+  "select_folder_to_import": {
+    "message": "Seleziona una cartella da importare"
+  },
+  "importing": {
+    "message": "Importazione..."
+  },
+  "folder_import_error": {
+    "message": "Errore import cartella"
+  },
+  "invalid_rule": {
+    "message": "Regola non valida: $rule$",
+    "placeholders": {
+      "rule": {
+        "content": "$1"
+      }
+    }
+  },
+  "no_compatible_links_found_folder": {
+    "message": "Nessun link compatibile trovato nella cartella"
+  },
+  "imported_count": {
+    "message": "$count$ importati",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "updated_count": {
+    "message": "$count$ aggiornati",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "already_present_count": {
+    "message": "$count$ gia presenti",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "no_new_links_to_import": {
+    "message": "Nessun nuovo link da importare"
+  },
+  "diag_local": {
+    "message": "Locale"
+  },
+  "diag_remote": {
+    "message": "Remoto"
+  },
+  "diag_local_only": {
+    "message": "Solo locale"
+  },
+  "diag_remote_only": {
+    "message": "Solo remoto"
+  },
+  "diag_field_mismatches": {
+    "message": "Differenze campi"
+  },
+  "diag_pending_upsert": {
+    "message": "Pending upsert"
+  },
+  "diag_pending_delete": {
+    "message": "Pending delete"
+  },
+  "diag_last_sync_revision": {
+    "message": "Last sync revision"
+  },
+  "diag_links_local_only": {
+    "message": "Link presenti solo in locale"
+  },
+  "diag_links_remote_only": {
+    "message": "Link presenti solo in remoto"
+  },
+  "diag_links_mismatched": {
+    "message": "Link con campi divergenti"
+  },
+  "unable_load_links": {
+    "message": "Impossibile caricare i link"
+  },
+  "archive": {
+    "message": "Archivio"
+  },
+  "filter_unseen": {
+    "message": "Non visti"
+  },
+  "filter_favorites": {
+    "message": "Favoriti"
+  },
+  "search_saved_links": {
+    "message": "Cerca link salvati"
+  },
+  "search_saved_links_placeholder": {
+    "message": "Cerca nei link salvati"
+  },
+  "type_to_search_saved_link": {
+    "message": "Scrivi nella ricerca per trovare un link salvato"
+  },
+  "open_in_new_tab": {
+    "message": "Apri in nuova scheda"
+  },
+  "no_results": {
+    "message": "Nessun risultato"
+  },
+  "link_removed": {
+    "message": "Link rimosso"
+  },
+  "link_marked_seen": {
+    "message": "Link segnato come visto"
+  },
+  "link_marked_unseen": {
+    "message": "Link segnato come non visto"
+  },
+  "link_added_favorites": {
+    "message": "Link aggiunto ai favoriti"
+  },
+  "link_removed_favorites": {
+    "message": "Link rimosso dai favoriti"
+  },
+  "pending_queue_with_flush": {
+    "message": "$count$ in coda$suffix$",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      },
+      "suffix": {
+        "content": "$2"
+      }
+    }
+  },
+  "flush_at": {
+    "message": " • flush $time$",
+    "placeholders": {
+      "time": {
+        "content": "$1"
+      }
+    }
+  },
+  "popup_title": {
+    "message": "Link Manager"
+  },
+  "options_page_title": {
+    "message": "Impostazioni Link Manager"
+  },
+  "options_intro_prefix": {
+    "message": "Salva un link con"
+  },
+  "options_intro_suffix": {
+    "message": ", poi aprilo dalla mini barra presente nelle pagine."
+  },
+  "open_archive_links": {
+    "message": "Apri archivio link"
+  },
+  "import_from_bookmarks": {
+    "message": "Importa Da Preferiti"
+  },
+  "folder_to_import": {
+    "message": "Cartella da importare"
+  },
+  "import_links_from_folder": {
+    "message": "Importa link da cartella"
+  },
+  "import_as_seen": {
+    "message": "Importa come gia visti"
+  },
+  "import_as_favorite": {
+    "message": "Importa come favoriti"
+  },
+  "import_folder_description": {
+    "message": "Importa nel database locale tutti i link della cartella selezionata, comprese le sottocartelle, assegnando opzionalmente gli stati interni selezionati."
+  },
+  "bar_and_navigation": {
+    "message": "Barra e Navigazione"
+  },
+  "ignore_seen_nav": {
+    "message": "Ignora i link gia visti in avanti, indietro e casuale"
+  },
+  "ignore_fav_nav": {
+    "message": "Ignora i link favoriti in avanti, indietro e casuale"
+  },
+  "close_duplicate_tabs_on_load": {
+    "message": "Chiudi automaticamente le tab duplicate alla navigazione"
+  },
+  "close_seen_tabs_on_load": {
+    "message": "Chiudi la scheda se la pagina e gia presente tra i link visti"
+  },
+  "bar_visibility": {
+    "message": "Visibilita barra"
+  },
+  "bar_visibility_always": {
+    "message": "Mostra sempre"
+  },
+  "bar_visibility_whitelist": {
+    "message": "Mostra solo su questi siti"
+  },
+  "bar_visibility_blacklist": {
+    "message": "Non mostrare in questi siti"
+  },
+  "bar_visibility_sites": {
+    "message": "Siti per whitelist / blacklist"
+  },
+  "bar_visibility_sites_placeholder": {
+    "message": "example.com\n*.example.com"
+  },
+  "bar_visibility_help_prefix": {
+    "message": "Una riga per sito. Sono supportati host esatti come"
+  },
+  "bar_visibility_help_suffix": {
+    "message": "e wildcard come"
+  },
+  "url_rules": {
+    "message": "Regole URL"
+  },
+  "url_rules_help_prefix": {
+    "message": "Una riga per dominio. Formato:"
+  },
+  "url_rules_help_suffix": {
+    "message": "oppure"
+  },
+  "url_rules_help_global": {
+    "message": "per una regola globale."
+  },
+  "query_params_to_ignore": {
+    "message": "Parametri query da ignorare per il confronto"
+  },
+  "account_and_sync": {
+    "message": "Account e Sync"
+  },
+  "account_sync_description": {
+    "message": "Accedi con magic link per sincronizzare il database dei link su Supabase tra piu browser e dispositivi."
+  },
+  "redirect_url_label": {
+    "message": "Redirect URL da configurare in Supabase Auth:"
+  },
+  "email_label": {
+    "message": "Email"
+  },
+  "email_placeholder": {
+    "message": "nome@dominio.it"
+  },
+  "send_magic_link": {
+    "message": "Invia magic link"
+  },
+  "account_status": {
+    "message": "Stato account"
+  },
+  "last_sync": {
+    "message": "Ultima sync"
+  },
+  "sync_queue_status": {
+    "message": "Stato coda sync"
+  },
+  "next_flush": {
+    "message": "Prossimo flush"
+  },
+  "sync_now": {
+    "message": "Sincronizza ora"
+  },
+  "compare_local_remote": {
+    "message": "Confronta locale e remoto"
+  },
+  "sign_out": {
+    "message": "Esci"
+  },
+  "enable_shift_capture": {
+    "message": "Abilita salvataggio con Shift+Click"
+  },
+  "open_links_new_tab": {
+    "message": "Apri i link in una nuova scheda"
+  },
+  "save_settings": {
+    "message": "Salva impostazioni"
+  },
+  "toggle_current_page": {
+    "message": "Aggiungi o rimuovi pagina corrente"
+  }
+}

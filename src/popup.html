@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Link Manager</title>
+    <title data-i18n="popup_title">Link Manager</title>
     <style>
       :root {
         color-scheme: dark;
@@ -291,23 +291,23 @@
       <header class="header">
         <div class="brand">
           <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M13 2 5 14h5l-1 8 8-12h-5l1-8Z"/></svg></span>
-          <span>Link Manager</span>
+          <span data-i18n="link_manager_name">Link Manager</span>
         </div>
         <div class="header-actions">
-          <button id="openArchiveButton" class="header-link" type="button">Archivio</button>
+          <button id="openArchiveButton" class="header-link" type="button" data-i18n="archive">Archivio</button>
           <span id="count" class="count">0</span>
         </div>
       </header>
       <section class="body">
         <div id="quickActions" class="quick-actions"></div>
         <div class="toolbar">
-          <label class="search" aria-label="Cerca link salvati">
+          <label class="search" aria-label="Cerca link salvati" data-i18n-aria-label="search_saved_links">
             <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M10 4a6 6 0 1 0 3.87 10.58l4.27 4.28 1.42-1.42-4.28-4.27A6 6 0 0 0 10 4Zm0 2a4 4 0 1 1 0 8 4 4 0 0 1 0-8Z"/></svg></span>
-            <input id="searchInput" type="search" placeholder="Cerca nei link salvati">
+            <input id="searchInput" type="search" placeholder="Cerca nei link salvati" data-i18n-placeholder="search_saved_links_placeholder">
           </label>
           <div class="filters">
-            <button id="filterSeenButton" class="filter-chip" type="button">Non visti</button>
-            <button id="filterFavoriteButton" class="filter-chip" type="button">Favoriti</button>
+            <button id="filterSeenButton" class="filter-chip" type="button" data-i18n="filter_unseen">Non visti</button>
+            <button id="filterFavoriteButton" class="filter-chip" type="button" data-i18n="filter_favorites">Favoriti</button>
           </div>
         </div>
         <ul id="results" class="list"></ul>

@@ -32,6 +32,10 @@ const debugSyncButton = document.getElementById("debugSyncButton");
 const debugSyncOutputNode = document.getElementById("debugSyncOutput");
 const signOutButton = document.getElementById("signOutButton");
 
+function t(key, substitutions) {
+  return chrome.i18n.getMessage(key, substitutions) || key;
+}
+
 init();
 
 saveButton.addEventListener("click", saveSettings);
@@ -45,6 +49,7 @@ openArchivePageButton.addEventListener("click", openArchivePage);
 
 async function init() {
   try {
+    applyStaticI18n();
     authRedirectUrlNode.textContent = chrome.runtime.getURL(
       "src/auth-callback.html",
     );
@@ -90,8 +95,35 @@ async function init() {
     renderImportFolderOptions(folders);
     syncBarVisibilityState();
   } catch (error) {
-    setStatus(error.message || "Impossibile caricare le impostazioni", true);
+    setStatus(error.message || t("unable_load_settings"), true);
   }
+}
+
+function applyStaticI18n() {
+  const uiLang = chrome.i18n.getUILanguage();
+  document.documentElement.lang = uiLang?.startsWith("it") ? "it" : "en";
+
+  document.documentElement
+    .querySelectorAll("[data-i18n]")
+    .forEach((node) => {
+      const key = node.getAttribute("data-i18n");
+      if (!key) {
+        return;
+      }
+
+      node.textContent = t(key);
+    });
+
+  document.documentElement
+    .querySelectorAll("[data-i18n-placeholder]")
+    .forEach((node) => {
+      const key = node.getAttribute("data-i18n-placeholder");
+      if (!key) {
+        return;
+      }
+
+      node.setAttribute("placeholder", t(key));
+    });
 }
 
 async function saveSettings() {
@@ -112,22 +144,22 @@ async function saveSettings() {
       },
     });
 
-    setStatus("Impostazioni salvate");
+    setStatus(t("settings_saved"));
   } catch (error) {
-    setStatus(error.message || "Errore salvataggio impostazioni", true);
+    setStatus(error.message || t("settings_save_error"), true);
   }
 }
 
 async function sendMagicLink() {
   try {
-    setButtonBusy(sendMagicLinkButton, true, "Invio...");
+    setButtonBusy(sendMagicLinkButton, true, t("sending"));
     const result = await sendMessage({
       type: "send-magic-link",
       payload: { email: authEmailInput.value },
     });
-    setStatus(`Magic link inviato a ${result.email}`);
+    setStatus(t("magic_link_sent_to", [result.email]));
   } catch (error) {
-    setStatus(error.message || "Errore invio magic link", true);
+    setStatus(error.message || t("magic_link_send_error"), true);
   } finally {
     setButtonBusy(sendMagicLinkButton, false);
   }
@@ -135,12 +167,12 @@ async function sendMagicLink() {
 
 async function syncNow() {
   try {
-    setButtonBusy(syncNowButton, true, "Sync...");
+    setButtonBusy(syncNowButton, true, t("sync_in_progress_short"));
     const result = await sendMessage({ type: "sync-supabase" });
     await refreshState();
-    setStatus(`Sincronizzati ${result.syncedCount} link`);
+    setStatus(t("synced_links_count", [String(result.syncedCount)]));
   } catch (error) {
-    setStatus(error.message || "Errore sincronizzazione", true);
+    setStatus(error.message || t("sync_error"), true);
   } finally {
     setButtonBusy(syncNowButton, false);
   }
@@ -148,12 +180,12 @@ async function syncNow() {
 
 async function signOut() {
   try {
-    setButtonBusy(signOutButton, true, "Uscita...");
+    setButtonBusy(signOutButton, true, t("signing_out"));
     await sendMessage({ type: "sign-out-supabase" });
     await refreshState();
-    setStatus("Disconnessione completata");
+    setStatus(t("sign_out_completed"));
   } catch (error) {
-    setStatus(error.message || "Errore disconnessione", true);
+    setStatus(error.message || t("sign_out_error"), true);
   } finally {
     setButtonBusy(signOutButton, false);
   }
@@ -161,21 +193,18 @@ async function signOut() {
 
 async function debugSyncState() {
   try {
-    setButtonBusy(debugSyncButton, true, "Confronto...");
+    setButtonBusy(debugSyncButton, true, t("comparing"));
     const result = await sendMessage({ type: "debug-sync-diff" });
     debugSyncOutputNode.textContent = formatSyncDiagnostic(result);
 
     if (result.summary.localOnlyCount) {
-      setStatus(
-        `Trovati ${result.summary.localOnlyCount} link solo in locale`,
-        true,
-      );
+      setStatus(t("found_local_only_links", [String(result.summary.localOnlyCount)]), true);
     } else {
-      setStatus("Locale e remoto risultano allineati");
+      setStatus(t("local_remote_aligned"));
     }
   } catch (error) {
     debugSyncOutputNode.textContent = "";
-    setStatus(error.message || "Errore confronto sync", true);
+    setStatus(error.message || t("sync_compare_error"), true);
   } finally {
     setButtonBusy(debugSyncButton, false);
   }
@@ -199,27 +228,29 @@ async function openArchivePage() {
 
 function renderAuthState(auth = {}) {
   authStatusNode.textContent = auth.isAuthenticated
-    ? `Connesso come ${auth.email || "utente"}`
-    : "Non autenticato";
+    ? t("connected_as", [auth.email || t("user_generic")])
+    : t("not_authenticated");
   lastSyncAtNode.textContent = auth.lastSyncAt
     ? formatDateTime(auth.lastSyncAt)
-    : "Mai";
+    : t("never");
   syncNowButton.disabled = !auth.isAuthenticated;
   signOutButton.disabled = !auth.isAuthenticated;
 }
 
 function renderSyncState(sync = {}) {
   if (sync.isSyncing) {
-    syncQueueStatusNode.textContent = "Sync in corso";
+    syncQueueStatusNode.textContent = t("sync_in_progress");
   } else if (sync.pendingCount) {
-    syncQueueStatusNode.textContent = `${sync.pendingCount} modifiche in coda`;
+    syncQueueStatusNode.textContent = t("pending_changes_count", [
+      String(sync.pendingCount),
+    ]);
   } else {
-    syncQueueStatusNode.textContent = "Nessuna modifica in coda";
+    syncQueueStatusNode.textContent = t("no_changes_queued");
   }
 
   nextFlushAtNode.textContent = sync.nextFlushAt
     ? formatDateTime(sync.nextFlushAt)
-    : "Non pianificato";
+    : t("not_scheduled");
 }
 
 function formatDateTime(value) {
@@ -232,7 +263,7 @@ function formatDateTime(value) {
 
 function renderImportFolderOptions(folders, selectedId = "") {
   const options = [
-    '<option value="">Seleziona una cartella</option>',
+    `<option value="">${escapeHtml(t("select_folder"))}</option>`,
     ...folders.map((folder) => {
       const selected = folder.id === selectedId ? " selected" : "";
       return `<option value="${escapeHtml(folder.id)}"${selected}>${escapeHtml(folder.path)}</option>`;
@@ -249,12 +280,12 @@ function syncBarVisibilityState() {
 
 async function importFolder() {
   if (!importFolderIdInput.value) {
-    setStatus("Seleziona una cartella da importare", true);
+    setStatus(t("select_folder_to_import"), true);
     return;
   }
 
   try {
-    setButtonBusy(importFolderButton, true, "Importazione...");
+    setButtonBusy(importFolderButton, true, t("importing"));
     const result = await sendMessage({
       type: "import-bookmark-folder",
       payload: {
@@ -265,7 +296,7 @@ async function importFolder() {
     });
     setStatus(formatImportMessage(result));
   } catch (error) {
-    setStatus(error.message || "Errore import cartella", true);
+    setStatus(error.message || t("folder_import_error"), true);
   } finally {
     setButtonBusy(importFolderButton, false);
   }
@@ -282,12 +313,12 @@ function parseSiteRules(raw) {
 
     const [hostname, params] = trimmed.split("=");
     if (!hostname || params === undefined) {
-      throw new Error(`Regola non valida: ${trimmed}`);
+      throw new Error(t("invalid_rule", [trimmed]));
     }
 
     const normalizedHostname = hostname.trim().toLowerCase();
     if (!normalizedHostname) {
-      throw new Error(`Regola non valida: ${trimmed}`);
+      throw new Error(t("invalid_rule", [trimmed]));
     }
 
     siteRules[normalizedHostname] = params
@@ -332,37 +363,37 @@ function setButtonBusy(button, busy, busyLabel = "") {
 
 function formatImportMessage(result) {
   if (!result?.totalCount) {
-    return "Nessun link compatibile trovato nella cartella";
+    return t("no_compatible_links_found_folder");
   }
 
   const parts = [];
   if (result.savedCount) {
-    parts.push(`${result.savedCount} importati`);
+    parts.push(t("imported_count", [String(result.savedCount)]));
   }
   if (result.updatedCount) {
-    parts.push(`${result.updatedCount} aggiornati`);
+    parts.push(t("updated_count", [String(result.updatedCount)]));
   }
   if (result.duplicateCount) {
-    parts.push(`${result.duplicateCount} gia presenti`);
+    parts.push(t("already_present_count", [String(result.duplicateCount)]));
   }
 
-  return parts.length ? parts.join(" • ") : "Nessun nuovo link da importare";
+  return parts.length ? parts.join(" • ") : t("no_new_links_to_import");
 }
 
 function formatSyncDiagnostic(result) {
   const sections = [
-    `Locale: ${result.summary.localCount}`,
-    `Remoto: ${result.summary.remoteCount}`,
-    `Solo locale: ${result.summary.localOnlyCount}`,
-    `Solo remoto: ${result.summary.remoteOnlyCount}`,
-    `Differenze campi: ${result.summary.mismatchedCount}`,
-    `Pending upsert: ${result.summary.pendingUpserts}`,
-    `Pending delete: ${result.summary.pendingDeletes}`,
-    `Last sync revision: ${result.summary.lastSyncRevision || "-"}`,
+    `${t("diag_local")}: ${result.summary.localCount}`,
+    `${t("diag_remote")}: ${result.summary.remoteCount}`,
+    `${t("diag_local_only")}: ${result.summary.localOnlyCount}`,
+    `${t("diag_remote_only")}: ${result.summary.remoteOnlyCount}`,
+    `${t("diag_field_mismatches")}: ${result.summary.mismatchedCount}`,
+    `${t("diag_pending_upsert")}: ${result.summary.pendingUpserts}`,
+    `${t("diag_pending_delete")}: ${result.summary.pendingDeletes}`,
+    `${t("diag_last_sync_revision")}: ${result.summary.lastSyncRevision || "-"}`,
   ];
 
   if (result.localOnly.length) {
-    sections.push("\nLink presenti solo in locale:");
+    sections.push(`\n${t("diag_links_local_only")}:`);
     for (const entry of result.localOnly) {
       sections.push(
         `- ${entry.title} | ${entry.url} | pendingUpsert=${entry.pendingUpsert} pendingDelete=${entry.pendingDelete} remoteDeleted=${entry.remoteDeleted}`,
@@ -371,14 +402,14 @@ function formatSyncDiagnostic(result) {
   }
 
   if (result.remoteOnly.length) {
-    sections.push("\nLink presenti solo in remoto:");
+    sections.push(`\n${t("diag_links_remote_only")}:`);
     for (const entry of result.remoteOnly) {
       sections.push(`- ${entry.title} | ${entry.url}`);
     }
   }
 
   if (result.mismatched.length) {
-    sections.push("\nLink con campi divergenti:");
+    sections.push(`\n${t("diag_links_mismatched")}:`);
     for (const entry of result.mismatched) {
       sections.push(
         `- ${entry.normalizedUrl} | differenze: ${entry.differences.join(", ")}`,

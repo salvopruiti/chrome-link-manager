@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Link Manager Settings</title>
+    <title data-i18n="options_page_title">Link Manager Settings</title>
     <style>
       :root {
         color-scheme: light;
@@ -108,111 +108,111 @@
   <body>
     <main>
       <section class="card">
-        <h1>Link Manager</h1>
-        <p>Salva un link con <strong>Shift+Click</strong>, poi aprilo dalla mini barra presente nelle pagine.</p>
+        <h1 data-i18n="link_manager_name">Link Manager</h1>
+        <p><span data-i18n="options_intro_prefix">Salva un link con</span> <strong data-i18n="capture_mode_shift_click">Shift+Click</strong><span data-i18n="options_intro_suffix">, poi aprilo dalla mini barra presente nelle pagine.</span></p>
         <div class="row">
-          <button id="openArchivePageButton" type="button">Apri archivio link</button>
+          <button id="openArchivePageButton" type="button" data-i18n="open_archive_links">Apri archivio link</button>
         </div>
       </section>
 
       <section class="card">
-        <h2>Importa Da Preferiti</h2>
+        <h2 data-i18n="import_from_bookmarks">Importa Da Preferiti</h2>
         <div class="row">
           <div>
-            <label for="importFolderId">Cartella da importare</label>
+            <label for="importFolderId" data-i18n="folder_to_import">Cartella da importare</label>
             <select id="importFolderId"></select>
           </div>
           <div>
             <label>&nbsp;</label>
-            <button id="importFolderButton" type="button">Importa link da cartella</button>
+            <button id="importFolderButton" type="button" data-i18n="import_links_from_folder">Importa link da cartella</button>
           </div>
         </div>
         <div class="row">
-          <label><input id="importAsSeen" type="checkbox"> Importa come gia visti</label>
-          <label><input id="importAsFavorite" type="checkbox"> Importa come favoriti</label>
+          <label><input id="importAsSeen" type="checkbox"> <span data-i18n="import_as_seen">Importa come gia visti</span></label>
+          <label><input id="importAsFavorite" type="checkbox"> <span data-i18n="import_as_favorite">Importa come favoriti</span></label>
         </div>
-        <p>Importa nel database locale tutti i link della cartella selezionata, comprese le sottocartelle, assegnando opzionalmente gli stati interni selezionati.</p>
+        <p data-i18n="import_folder_description">Importa nel database locale tutti i link della cartella selezionata, comprese le sottocartelle, assegnando opzionalmente gli stati interni selezionati.</p>
       </section>
 
       <section class="card">
-        <h2>Barra e Navigazione</h2>
+        <h2 data-i18n="bar_and_navigation">Barra e Navigazione</h2>
         <div class="row">
-          <label><input id="skipSeenInNavigation" type="checkbox"> Ignora i link gia visti in avanti, indietro e casuale</label>
-          <label><input id="skipFavoriteInNavigation" type="checkbox"> Ignora i link favoriti in avanti, indietro e casuale</label>
+          <label><input id="skipSeenInNavigation" type="checkbox"> <span data-i18n="ignore_seen_nav">Ignora i link gia visti in avanti, indietro e casuale</span></label>
+          <label><input id="skipFavoriteInNavigation" type="checkbox"> <span data-i18n="ignore_fav_nav">Ignora i link favoriti in avanti, indietro e casuale</span></label>
         </div>
         <div class="row">
-          <label><input id="closeDuplicateTabsOnLoad" type="checkbox"> Chiudi automaticamente le tab duplicate alla navigazione</label>
-          <label><input id="closeSeenTabsOnLoad" type="checkbox"> Chiudi la scheda se la pagina è già presente tra i link visti</label>
+          <label><input id="closeDuplicateTabsOnLoad" type="checkbox"> <span data-i18n="close_duplicate_tabs_on_load">Chiudi automaticamente le tab duplicate alla navigazione</span></label>
+          <label><input id="closeSeenTabsOnLoad" type="checkbox"> <span data-i18n="close_seen_tabs_on_load">Chiudi la scheda se la pagina è già presente tra i link visti</span></label>
         </div>
         <div>
-          <label for="barVisibilityMode">Visibilita barra</label>
+          <label for="barVisibilityMode" data-i18n="bar_visibility">Visibilita barra</label>
           <select id="barVisibilityMode">
-            <option value="always">Mostra sempre</option>
-            <option value="whitelist">Mostra solo su questi siti</option>
-            <option value="blacklist">Non mostrare in questi siti</option>
+            <option value="always" data-i18n="bar_visibility_always">Mostra sempre</option>
+            <option value="whitelist" data-i18n="bar_visibility_whitelist">Mostra solo su questi siti</option>
+            <option value="blacklist" data-i18n="bar_visibility_blacklist">Non mostrare in questi siti</option>
           </select>
         </div>
         <div>
-          <label for="barVisibilitySites">Siti per whitelist / blacklist</label>
-          <textarea id="barVisibilitySites" spellcheck="false" placeholder="example.com&#10;*.example.com"></textarea>
+          <label for="barVisibilitySites" data-i18n="bar_visibility_sites">Siti per whitelist / blacklist</label>
+          <textarea id="barVisibilitySites" spellcheck="false" placeholder="example.com&#10;*.example.com" data-i18n-placeholder="bar_visibility_sites_placeholder"></textarea>
         </div>
-        <p>Una riga per sito. Sono supportati host esatti come <code>example.com</code> e wildcard come <code>*.example.com</code>.</p>
+        <p><span data-i18n="bar_visibility_help_prefix">Una riga per sito. Sono supportati host esatti come</span> <code>example.com</code> <span data-i18n="bar_visibility_help_suffix">e wildcard come</span> <code>*.example.com</code>.</p>
       </section>
 
       <section class="card">
-        <h2>Regole URL</h2>
-        <p>Una riga per dominio. Formato: <code>dominio.tld=utm_source,utm_campaign</code>, <code>*.dominio.tld=ref</code> oppure <code>*=utm_source,fbclid</code> per una regola globale.</p>
-        <label for="siteRules">Parametri query da ignorare per il confronto</label>
+        <h2 data-i18n="url_rules">Regole URL</h2>
+        <p><span data-i18n="url_rules_help_prefix">Una riga per dominio. Formato:</span> <code>dominio.tld=utm_source,utm_campaign</code>, <code>*.dominio.tld=ref</code> <span data-i18n="url_rules_help_suffix">oppure</span> <code>*=utm_source,fbclid</code> <span data-i18n="url_rules_help_global">per una regola globale.</span></p>
+        <label for="siteRules" data-i18n="query_params_to_ignore">Parametri query da ignorare per il confronto</label>
         <textarea id="siteRules" spellcheck="false"></textarea>
       </section>
 
       <section class="card">
-        <h2>Account e Sync</h2>
-        <p>Accedi con magic link per sincronizzare il database dei link su Supabase tra piu browser e dispositivi.</p>
-        <p>Redirect URL da configurare in Supabase Auth: <code id="authRedirectUrl"></code></p>
+        <h2 data-i18n="account_and_sync">Account e Sync</h2>
+        <p data-i18n="account_sync_description">Accedi con magic link per sincronizzare il database dei link su Supabase tra piu browser e dispositivi.</p>
+        <p><span data-i18n="redirect_url_label">Redirect URL da configurare in Supabase Auth:</span> <code id="authRedirectUrl"></code></p>
         <div class="row">
           <div>
-            <label for="authEmail">Email</label>
-            <input id="authEmail" type="text" placeholder="nome@dominio.it">
+            <label for="authEmail" data-i18n="email_label">Email</label>
+            <input id="authEmail" type="text" placeholder="nome@dominio.it" data-i18n-placeholder="email_placeholder">
           </div>
           <div>
             <label>&nbsp;</label>
-            <button id="sendMagicLinkButton" type="button">Invia magic link</button>
+            <button id="sendMagicLinkButton" type="button" data-i18n="send_magic_link">Invia magic link</button>
           </div>
         </div>
         <div class="row">
           <div>
-            <label>Stato account</label>
-            <div id="authStatus">Non autenticato</div>
+            <label data-i18n="account_status">Stato account</label>
+            <div id="authStatus" data-i18n="not_authenticated">Non autenticato</div>
           </div>
           <div>
-            <label>Ultima sync</label>
-            <div id="lastSyncAt">Mai</div>
+            <label data-i18n="last_sync">Ultima sync</label>
+            <div id="lastSyncAt" data-i18n="never">Mai</div>
           </div>
         </div>
         <div class="row">
           <div>
-            <label>Stato coda sync</label>
-            <div id="syncQueueStatus">Nessuna modifica in coda</div>
+            <label data-i18n="sync_queue_status">Stato coda sync</label>
+            <div id="syncQueueStatus" data-i18n="no_changes_queued">Nessuna modifica in coda</div>
           </div>
           <div>
-            <label>Prossimo flush</label>
-            <div id="nextFlushAt">Non pianificato</div>
+            <label data-i18n="next_flush">Prossimo flush</label>
+            <div id="nextFlushAt" data-i18n="not_scheduled">Non pianificato</div>
           </div>
         </div>
         <div class="row">
-          <button id="syncNowButton" type="button">Sincronizza ora</button>
-          <button id="debugSyncButton" type="button" class="secondary">Confronta locale e remoto</button>
-          <button id="signOutButton" type="button" class="secondary">Esci</button>
+          <button id="syncNowButton" type="button" data-i18n="sync_now">Sincronizza ora</button>
+          <button id="debugSyncButton" type="button" class="secondary" data-i18n="compare_local_remote">Confronta locale e remoto</button>
+          <button id="signOutButton" type="button" class="secondary" data-i18n="sign_out">Esci</button>
         </div>
         <pre id="debugSyncOutput" class="status" style="white-space: pre-wrap; min-height: 0;"></pre>
       </section>
 
       <section class="card">
         <div class="row">
-          <label><input id="captureWithShift" type="checkbox"> Abilita salvataggio con Shift+Click</label>
-          <label><input id="openLinksInNewTab" type="checkbox"> Apri i link in una nuova scheda</label>
-          <button id="saveButton" type="button">Salva impostazioni</button>
+          <label><input id="captureWithShift" type="checkbox"> <span data-i18n="enable_shift_capture">Abilita salvataggio con Shift+Click</span></label>
+          <label><input id="openLinksInNewTab" type="checkbox"> <span data-i18n="open_links_new_tab">Apri i link in una nuova scheda</span></label>
+          <button id="saveButton" type="button" data-i18n="save_settings">Salva impostazioni</button>
         </div>
         <div id="status" class="status" aria-live="polite"></div>
       </section>

@@ -19,6 +19,10 @@ let filterSeenOnly = false;
 let filterFavoriteOnly = false;
 let pendingAction = null;
 
+function t(key, substitutions) {
+  return chrome.i18n.getMessage(key, substitutions) || key;
+}
+
 init();
 
 searchInput.addEventListener("input", (event) => {
@@ -40,6 +44,7 @@ openArchiveButton.addEventListener("click", openArchivePage);
 
 async function init() {
   try {
+    applyStaticI18n();
     const [state, tabs] = await Promise.all([
       sendMessage({ type: "get-state" }),
       chrome.tabs.query({ active: true, currentWindow: true }),
@@ -54,8 +59,46 @@ async function init() {
       void refreshPopupStateFromSync();
     }
   } catch (error) {
-    setStatus(error.message || "Impossibile caricare i link", true);
+    setStatus(error.message || t("unable_load_links"), true);
   }
+}
+
+function applyStaticI18n() {
+  const uiLang = chrome.i18n.getUILanguage();
+  document.documentElement.lang = uiLang?.startsWith("it") ? "it" : "en";
+
+  document.documentElement
+    .querySelectorAll("[data-i18n]")
+    .forEach((node) => {
+      const key = node.getAttribute("data-i18n");
+      if (!key) {
+        return;
+      }
+
+      node.textContent = t(key);
+    });
+
+  document.documentElement
+    .querySelectorAll("[data-i18n-placeholder]")
+    .forEach((node) => {
+      const key = node.getAttribute("data-i18n-placeholder");
+      if (!key) {
+        return;
+      }
+
+      node.setAttribute("placeholder", t(key));
+    });
+
+  document.documentElement
+    .querySelectorAll("[data-i18n-aria-label]")
+    .forEach((node) => {
+      const key = node.getAttribute("data-i18n-aria-label");
+      if (!key) {
+        return;
+      }
+
+      node.setAttribute("aria-label", t(key));
+    });
 }
 
 async function refreshPopupStateFromSync() {
@@ -81,31 +124,31 @@ function render() {
     searchQuery.trim() || filterSeenOnly || filterFavoriteOnly,
   );
   resultsNode.innerHTML = !hasActiveSearch
-    ? '<li class="empty">Scrivi nella ricerca per trovare un link salvato</li>'
+    ? `<li class="empty">${escapeHtml(t("type_to_search_saved_link"))}</li>`
     : filteredEntries.length
       ? filteredEntries
           .map(
             (entry) => `
               <li class="entry" data-id="${escapeHtml(entry.id)}">
-                <button class="open" data-action="open" data-id="${escapeHtml(entry.id)}" title="Apri in nuova scheda">
+                <button class="open" data-action="open" data-id="${escapeHtml(entry.id)}" title="${t("open_in_new_tab")}">
                   <span class="title">${escapeHtml(entry.title)}</span>
                   <span class="url">${escapeHtml(entry.url)}</span>
                 </button>
                 <div class="actions">
-                  <button class="icon-button${getToggleStateClass("seen", entry.isSeen)}" data-action="toggle-seen" data-id="${escapeHtml(entry.id)}" title="${entry.isSeen ? "Togli visto" : "Segna visto"}" aria-label="${entry.isSeen ? "Togli visto" : "Segna visto"}">
+                  <button class="icon-button${getToggleStateClass("seen", entry.isSeen)}" data-action="toggle-seen" data-id="${escapeHtml(entry.id)}" title="${entry.isSeen ? t("unmark_seen") : t("mark_seen")}" aria-label="${entry.isSeen ? t("unmark_seen") : t("mark_seen")}">
                     ${isPending("toggle-seen", entry.id) ? spinnerMarkup() : iconMarkup(entry.isSeen ? "check-badge" : "check")}
                   </button>
-                  <button class="icon-button${getToggleStateClass("favorite", entry.isFavorite)}" data-action="toggle-favorite" data-id="${escapeHtml(entry.id)}" title="${entry.isFavorite ? "Togli favorito" : "Segna favorito"}" aria-label="${entry.isFavorite ? "Togli favorito" : "Segna favorito"}">
+                  <button class="icon-button${getToggleStateClass("favorite", entry.isFavorite)}" data-action="toggle-favorite" data-id="${escapeHtml(entry.id)}" title="${entry.isFavorite ? t("unmark_favorite") : t("mark_favorite")}" aria-label="${entry.isFavorite ? t("unmark_favorite") : t("mark_favorite")}">
                     ${isPending("toggle-favorite", entry.id) ? spinnerMarkup() : iconMarkup(entry.isFavorite ? "star-filled" : "star")}
                   </button>
-                  <button class="icon-button" data-action="remove" data-id="${escapeHtml(entry.id)}" title="Rimuovi" aria-label="Rimuovi">
+                  <button class="icon-button" data-action="remove" data-id="${escapeHtml(entry.id)}" title="${t("remove")}" aria-label="${t("remove")}">
                     ${isPending("remove", entry.id) ? spinnerMarkup() : iconMarkup("trash")}
                   </button>
                 </div>
               </li>`,
           )
           .join("")
-      : '<li class="empty">Nessun risultato</li>';
+      : `<li class="empty">${escapeHtml(t("no_results"))}</li>`;
 
   resultsNode.querySelectorAll("[data-action]").forEach((button) => {
     button.addEventListener("click", async (event) => {
@@ -134,7 +177,7 @@ function render() {
                 (entry) => entry.id !== id,
               );
               syncCurrentPageStateFromEntries({ preserveSnapshot: true });
-              setStatus("Link rimosso");
+              setStatus(t("link_removed"));
               break;
             case "toggle-seen":
               {
@@ -148,8 +191,8 @@ function render() {
                 syncCurrentPageStateFromEntries({ preserveSnapshot: true });
                 setStatus(
                   result.enabled
-                    ? "Link segnato come visto"
-                    : "Link segnato come non visto",
+                    ? t("link_marked_seen")
+                    : t("link_marked_unseen"),
                 );
               }
               break;
@@ -165,8 +208,8 @@ function render() {
                 syncCurrentPageStateFromEntries({ preserveSnapshot: true });
                 setStatus(
                   result.enabled
-                    ? "Link aggiunto ai favoriti"
-                    : "Link rimosso dai favoriti",
+                    ? t("link_added_favorites")
+                    : t("link_removed_favorites"),
                 );
               }
               break;
@@ -184,19 +227,22 @@ function renderSyncSummary() {
   const sync = popupState.sync || {};
 
   if (sync.isSyncing) {
-    syncSummaryNode.textContent = "Sync in corso";
+    syncSummaryNode.textContent = t("sync_in_progress");
     return;
   }
 
   if (sync.pendingCount) {
     const nextFlush = sync.nextFlushAt
-      ? ` • flush ${formatDateTime(sync.nextFlushAt)}`
+      ? t("flush_at", [formatDateTime(sync.nextFlushAt)])
       : "";
-    syncSummaryNode.textContent = `${sync.pendingCount} in coda${nextFlush}`;
+    syncSummaryNode.textContent = t("pending_queue_with_flush", [
+      String(sync.pendingCount),
+      nextFlush,
+    ]);
     return;
   }
 
-  syncSummaryNode.textContent = "Nessuna modifica in coda";
+  syncSummaryNode.textContent = t("no_changes_queued");
 }
 
 function renderFilterState() {
@@ -213,26 +259,26 @@ function renderQuickActions() {
   const currentToggleIcon = currentPageState.savedEntry ? "trash" : "plus";
   const currentPageExtraActions = currentPageState.savedEntry
     ? `
-    <button class="icon-button" type="button" data-action="toggle-seen-current" title="${currentPageState.isSeen ? "Togli visto" : "Segna visto"}" aria-label="${currentPageState.isSeen ? "Togli visto" : "Segna visto"}" ${getDisabledAttrs(isAnyPending())}>
+    <button class="icon-button" type="button" data-action="toggle-seen-current" title="${currentPageState.isSeen ? t("unmark_seen") : t("mark_seen")}" aria-label="${currentPageState.isSeen ? t("unmark_seen") : t("mark_seen")}" ${getDisabledAttrs(isAnyPending())}>
       ${isPending("toggle-seen-current") ? spinnerMarkup() : iconMarkup("check")}
     </button>
-    <button class="icon-button" type="button" data-action="toggle-favorite-current" title="${currentPageState.isFavorite ? "Togli favorito" : "Segna favorito"}" aria-label="${currentPageState.isFavorite ? "Togli favorito" : "Segna favorito"}" ${getDisabledAttrs(isAnyPending())}>
+    <button class="icon-button" type="button" data-action="toggle-favorite-current" title="${currentPageState.isFavorite ? t("unmark_favorite") : t("mark_favorite")}" aria-label="${currentPageState.isFavorite ? t("unmark_favorite") : t("mark_favorite")}" ${getDisabledAttrs(isAnyPending())}>
       ${isPending("toggle-favorite-current") ? spinnerMarkup() : iconMarkup("star")}
     </button>`
     : "";
 
   quickActionsNode.innerHTML = `
-    <button class="icon-button" type="button" data-action="prev-current" data-id="${escapeHtml(previousEntry?.id || "")}" title="Link precedente" aria-label="Link precedente" ${getDisabledAttrs(!previousEntry || isAnyPending())}>
+    <button class="icon-button" type="button" data-action="prev-current" data-id="${escapeHtml(previousEntry?.id || "")}" title="${t("previous_link")}" aria-label="${t("previous_link")}" ${getDisabledAttrs(!previousEntry || isAnyPending())}>
       ${isPending("prev-current") ? spinnerMarkup() : iconMarkup("chevron-left")}
     </button>
-    <button class="icon-button" type="button" data-action="next-current" data-id="${escapeHtml(nextEntry?.id || "")}" title="Link successivo" aria-label="Link successivo" ${getDisabledAttrs(!nextEntry || isAnyPending())}>
+    <button class="icon-button" type="button" data-action="next-current" data-id="${escapeHtml(nextEntry?.id || "")}" title="${t("next_link")}" aria-label="${t("next_link")}" ${getDisabledAttrs(!nextEntry || isAnyPending())}>
       ${isPending("next-current") ? spinnerMarkup() : iconMarkup("chevron-right")}
     </button>
-    <button class="icon-button" type="button" data-action="${currentToggleAction}" title="Aggiungi o rimuovi pagina corrente" aria-label="Aggiungi o rimuovi pagina corrente" ${getDisabledAttrs(isAnyPending() || !currentPageState.canSave)}>
+    <button class="icon-button" type="button" data-action="${currentToggleAction}" title="${t("toggle_current_page")}" aria-label="${t("toggle_current_page")}" ${getDisabledAttrs(isAnyPending() || !currentPageState.canSave)}>
       ${isPending(currentToggleAction) ? spinnerMarkup() : iconMarkup(currentToggleIcon)}
     </button>
     ${currentPageExtraActions}
-    <button class="icon-button" type="button" data-action="random" title="Apri link casuale" aria-label="Apri link casuale" ${getDisabledAttrs(isAnyPending() || !navigableEntries.length)}>
+    <button class="icon-button" type="button" data-action="random" title="${t("open_random_link")}" aria-label="${t("open_random_link")}" ${getDisabledAttrs(isAnyPending() || !navigableEntries.length)}>
       ${isPending("random") ? spinnerMarkup() : iconMarkup("shuffle")}
     </button>
   `;
@@ -296,8 +342,8 @@ function renderQuickActions() {
               });
               setStatus(
                 result.removed
-                  ? "Pagina rimossa dal database"
-                  : "Pagina non presente nel database",
+                  ? t("page_removed_database")
+                  : t("page_not_in_database"),
               );
               popupState.entries = popupState.entries.filter(
                 (entry) =>
@@ -316,8 +362,8 @@ function renderQuickActions() {
               });
               setStatus(
                 result.alreadyBookmarked
-                  ? "Pagina gia tra i favoriti"
-                  : "Pagina aggiunta ai favoriti",
+                  ? t("page_already_in_favorites")
+                  : t("page_added_favorites"),
               );
               if (result.entry) {
                 popupState.entries = [
@@ -344,8 +390,8 @@ function renderQuickActions() {
               syncCurrentPageStateFromEntries({ preserveSnapshot: true });
               setStatus(
                 result.enabled
-                  ? "Pagina segnata come vista"
-                  : "Pagina segnata come non vista",
+                  ? t("page_marked_seen")
+                  : t("page_marked_unseen"),
               );
               break;
             }
@@ -362,8 +408,8 @@ function renderQuickActions() {
               syncCurrentPageStateFromEntries({ preserveSnapshot: true });
               setStatus(
                 result.enabled
-                  ? "Pagina aggiunta ai favoriti"
-                  : "Pagina rimossa dai favoriti",
+                  ? t("page_added_favorites")
+                  : t("page_removed_favorites"),
               );
               break;
             }
@@ -394,7 +440,7 @@ async function runAction(action, callback, targetId = null) {
     await callback();
     render();
   } catch (error) {
-    setStatus(error.message || "Operazione fallita", true);
+    setStatus(error.message || t("operation_failed"), true);
   } finally {
     pendingAction = null;
     render();
@@ -558,12 +604,12 @@ function getDisabledAttrs(disabled) {
 
 function formatSaveFeedback(status) {
   const feedback = {
-    duplicate: "Link gia presente",
-    updated: "Link aggiornato",
-    saved: "Link salvato",
+    duplicate: t("link_already_present"),
+    updated: t("link_updated"),
+    saved: t("link_saved"),
   };
 
-  return feedback[status] || "Operazione completata";
+  return feedback[status] || t("operation_completed");
 }
 
 function getToggleStateClass(kind, isActive) {

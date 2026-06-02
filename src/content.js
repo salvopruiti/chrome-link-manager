@@ -23,6 +23,10 @@ let currentPageState = createEmptyCurrentPageState();
 let pendingAction = null;
 let toastTimeoutId = null;
 
+function t(key, substitutions) {
+  return chrome.i18n.getMessage(key, substitutions) || key;
+}
+
 bootstrap();
 
 chrome.runtime.onMessage.addListener((message) => {
@@ -35,7 +39,7 @@ chrome.runtime.onMessage.addListener((message) => {
 
   if (message?.type === "show-toast") {
     flashMessage(
-      message.payload?.text || "Operazione completata",
+      message.payload?.text || t("operation_completed"),
       Boolean(message.payload?.isError),
     );
   }
@@ -207,17 +211,17 @@ async function handleDocumentClick(event) {
     });
 
     const feedback = {
-      duplicate: "Link gia presente",
-      viewed: "Link gia visto",
-      updated: "Link aggiornato",
-      saved: "Link salvato",
+      duplicate: t("link_already_present"),
+      viewed: t("link_already_viewed"),
+      updated: t("link_updated"),
+      saved: t("link_saved"),
     };
 
     void refreshBarState();
 
-    flashMessage(feedback[result.status] || "Operazione completata");
+    flashMessage(feedback[result.status] || t("operation_completed"));
   } catch (error) {
-    flashMessage(error.message || "Errore salvataggio", true);
+    flashMessage(error.message || t("save_error"), true);
   }
 }
 
@@ -237,7 +241,7 @@ function shouldCaptureClick(event) {
     event.defaultPrevented
   ) {
     if (extensionState.settings.captureAllClicks) {
-      flashMessage("Salvataggio automatico ignorato per questo click", false);
+      flashMessage(t("auto_save_ignored_click"), false);
     }
     return;
   }
@@ -512,39 +516,39 @@ function renderBar() {
     ? "remove-current"
     : "save-current";
   const currentToggleLabel = currentPageState.savedEntry
-    ? "Rimuovi"
-    : "Aggiungi";
+    ? t("remove")
+    : t("add");
   const currentToggleIcon = currentPageState.savedEntry ? "trash" : "plus";
   const compactCurrentPageActionsMarkup = `
-        <button class="lm-icon-button" type="button" data-action="${currentToggleAction}" title="${currentToggleLabel} link corrente" aria-label="${currentToggleLabel} link corrente" ${getDisabledAttrs(busy || !currentPageState.canSave)}>${isPending(currentToggleAction) ? spinnerMarkup() : iconMarkup(currentToggleIcon)}</button>
-        <button class="lm-icon-button${getToggleStateClass("seen", currentPageState.isSeen)}" type="button" data-action="toggle-seen-current" title="${currentPageState.isSeen ? "Togli visto" : "Segna visto"}" aria-label="${currentPageState.isSeen ? "Togli visto" : "Segna visto"}" ${getDisabledAttrs(busy || !currentPageState.savedEntry)}>${isPending("toggle-seen-current") ? spinnerMarkup() : iconMarkup(currentPageState.isSeen ? "check-badge" : "check")}</button>
-        <button class="lm-icon-button${getToggleStateClass("favorite", currentPageState.isFavorite)}" type="button" data-action="toggle-favorite-current" title="${currentPageState.isFavorite ? "Togli favorito" : "Segna favorito"}" aria-label="${currentPageState.isFavorite ? "Togli favorito" : "Segna favorito"}" ${getDisabledAttrs(busy || !currentPageState.savedEntry)}>${isPending("toggle-favorite-current") ? spinnerMarkup() : iconMarkup(currentPageState.isFavorite ? "star-filled" : "star")}</button>
+        <button class="lm-icon-button" type="button" data-action="${currentToggleAction}" title="${currentToggleLabel} ${t("current_link")}" aria-label="${currentToggleLabel} ${t("current_link")}" ${getDisabledAttrs(busy || !currentPageState.canSave)}>${isPending(currentToggleAction) ? spinnerMarkup() : iconMarkup(currentToggleIcon)}</button>
+        <button class="lm-icon-button${getToggleStateClass("seen", currentPageState.isSeen)}" type="button" data-action="toggle-seen-current" title="${currentPageState.isSeen ? t("unmark_seen") : t("mark_seen")}" aria-label="${currentPageState.isSeen ? t("unmark_seen") : t("mark_seen")}" ${getDisabledAttrs(busy || !currentPageState.savedEntry)}>${isPending("toggle-seen-current") ? spinnerMarkup() : iconMarkup(currentPageState.isSeen ? "check-badge" : "check")}</button>
+        <button class="lm-icon-button${getToggleStateClass("favorite", currentPageState.isFavorite)}" type="button" data-action="toggle-favorite-current" title="${currentPageState.isFavorite ? t("unmark_favorite") : t("mark_favorite")}" aria-label="${currentPageState.isFavorite ? t("unmark_favorite") : t("mark_favorite")}" ${getDisabledAttrs(busy || !currentPageState.savedEntry)}>${isPending("toggle-favorite-current") ? spinnerMarkup() : iconMarkup(currentPageState.isFavorite ? "star-filled" : "star")}</button>
       `;
   const currentPageActionsMarkup = currentPageState.savedEntry
     ? `
-            <button title="${currentPageState.isSeen ? "Togli visto" : "Segna visto"}" class="lm-action-button${getToggleStateClass("seen", currentPageState.isSeen)}" type="button" data-action="toggle-seen-current" ${getDisabledAttrs(busy)}>
+            <button title="${currentPageState.isSeen ? t("unmark_seen") : t("mark_seen")}" class="lm-action-button${getToggleStateClass("seen", currentPageState.isSeen)}" type="button" data-action="toggle-seen-current" ${getDisabledAttrs(busy)}>
               ${isPending("toggle-seen-current") ? spinnerMarkup() : iconMarkup(currentPageState.isSeen ? "check-badge" : "check")}
-              <span style="display: none">${currentPageState.isSeen ? "Togli visto" : "Segna visto"}</span>
+              <span style="display: none">${currentPageState.isSeen ? t("unmark_seen") : t("mark_seen")}</span>
             </button>
-            <button title="${currentPageState.isFavorite ? "Togli favorito" : "Segna favorito"}" class="lm-action-button${getToggleStateClass("favorite", currentPageState.isFavorite)}" type="button" data-action="toggle-favorite-current" ${getDisabledAttrs(busy)}>
+            <button title="${currentPageState.isFavorite ? t("unmark_favorite") : t("mark_favorite")}" class="lm-action-button${getToggleStateClass("favorite", currentPageState.isFavorite)}" type="button" data-action="toggle-favorite-current" ${getDisabledAttrs(busy)}>
               ${isPending("toggle-favorite-current") ? spinnerMarkup() : iconMarkup(currentPageState.isFavorite ? "star-filled" : "star")}
-              <span style="display: none">${currentPageState.isFavorite ? "Togli favorito" : "Segna favorito"}</span>
+              <span style="display: none">${currentPageState.isFavorite ? t("unmark_favorite") : t("mark_favorite")}</span>
             </button>
           `
     : "";
   const currentPageNavigationMarkup = `
-            <button title="Link precedente" class="lm-action-button" type="button" data-action="prev-current" data-id="${escapeHtml(previousEntry?.id || "")}" ${getDisabledAttrs(busy || !previousEntry)}>
+            <button title="${chrome.i18n.getMessage("previous_link")}" class="lm-action-button" type="button" data-action="prev-current" data-id="${escapeHtml(previousEntry?.id || "")}" ${getDisabledAttrs(busy || !previousEntry)}>
               ${isPending("prev-current") ? spinnerMarkup() : iconMarkup("chevron-left")}
-              <span style="display: none">Link precedente</span>
+              <span style="display: none">${chrome.i18n.getMessage("previous_link")}</span>
             </button>
-            <button title="Link successivo" class="lm-action-button" type="button" data-action="next-current" data-id="${escapeHtml(nextEntry?.id || "")}" ${getDisabledAttrs(busy || !nextEntry)}>
+            <button title="${chrome.i18n.getMessage("next_link")}" class="lm-action-button" type="button" data-action="next-current" data-id="${escapeHtml(nextEntry?.id || "")}" ${getDisabledAttrs(busy || !nextEntry)}>
               ${isPending("next-current") ? spinnerMarkup() : iconMarkup("chevron-right")}
-              <span style="display: none">Link successivo</span>
+              <span style="display: none">${chrome.i18n.getMessage("next_link")}</span>
             </button>
           `;
   const captureToggleLabel = extensionState.settings.captureAllClicks
-    ? "Click automatico attivo"
-    : "Salva tutti i click";
+    ? t("capture_auto_active")
+    : t("capture_clicks");
   const isIconMode = barMode === "icon";
   const isPanelOpen = barMode === "open";
   const isCollapsedBar = barMode === "closed";
@@ -552,7 +556,7 @@ function renderBar() {
   root.innerHTML = isIconMode
     ? `
     <div class="lm-shell lm-shell-icon ${busy ? "is-busy" : ""}">
-      <button class="lm-icon-launcher" type="button" data-action="expand-from-icon" title="Apri Link Manager" aria-label="Apri Link Manager">
+      <button class="lm-icon-launcher" type="button" data-action="expand-from-icon" title="${chrome.i18n.getMessage("open_link_manager")}" aria-label="${chrome.i18n.getMessage("open_link_manager")}">
         ${iconMarkup("bolt")}
         <span class="lm-toggle-count">${navigableEntries.length}</span>
       </button>
@@ -562,14 +566,14 @@ function renderBar() {
     <div class="lm-shell ${extensionState.entries.length ? "has-entries" : ""} ${busy ? "is-busy" : ""}">
       <div class="lm-topline">
       <button class="lm-toggle" type="button" data-action="toggle">
-        <span class="lm-toggle-copy">${iconMarkup("bolt")} Link Manager</span>
+        <span class="lm-toggle-copy">${iconMarkup("bolt")} ${t("link_manager_name")}</span>
         <span class="lm-toggle-count">${navigableEntries.length}</span>
       </button>
       <div class="lm-top-actions">
         <button class="lm-minimize ${extensionState.settings.captureAllClicks ? "is-active" : ""}" type="button" data-action="toggle-capture-all" title="${captureToggleLabel}" aria-label="${captureToggleLabel}">
           ${iconMarkup("capture")}
         </button>
-        <button class="lm-minimize" type="button" data-action="minimize-to-icon" title="Riduci a icona" aria-label="Riduci a icona">
+        <button class="lm-minimize" type="button" data-action="minimize-to-icon" title="${chrome.i18n.getMessage("minimize_to_icon")}" aria-label="${chrome.i18n.getMessage("minimize_to_icon")}">
           ${iconMarkup("minimize")}
         </button>
       </div>
@@ -579,26 +583,26 @@ function renderBar() {
           ? `
       <div class="lm-quick-actions">
         ${compactCurrentPageActionsMarkup}
-        <button class="lm-icon-button" type="button" data-action="prev-current" data-id="${escapeHtml(previousEntry?.id || "")}" title="Link precedente" aria-label="Link precedente" ${getDisabledAttrs(busy || !previousEntry)}>${isPending("prev-current") ? spinnerMarkup() : iconMarkup("chevron-left")}</button>
-        <button class="lm-icon-button" type="button" data-action="next-current" data-id="${escapeHtml(nextEntry?.id || "")}" title="Link successivo" aria-label="Link successivo" ${getDisabledAttrs(busy || !nextEntry)}>${isPending("next-current") ? spinnerMarkup() : iconMarkup("chevron-right")}</button>
-        <button class="lm-icon-button" type="button" data-action="random" title="Apri link casuale" aria-label="Apri link casuale" ${getDisabledAttrs(busy || !navigableEntries.length)}>${isPending("random") ? spinnerMarkup() : iconMarkup("shuffle")}</button>
+        <button class="lm-icon-button" type="button" data-action="prev-current" data-id="${escapeHtml(previousEntry?.id || "")}" title="${chrome.i18n.getMessage("previous_link")}" aria-label="${chrome.i18n.getMessage("previous_link")}" ${getDisabledAttrs(busy || !previousEntry)}>${isPending("prev-current") ? spinnerMarkup() : iconMarkup("chevron-left")}</button>
+        <button class="lm-icon-button" type="button" data-action="next-current" data-id="${escapeHtml(nextEntry?.id || "")}" title="${chrome.i18n.getMessage("next_link")}" aria-label="${chrome.i18n.getMessage("next_link")}" ${getDisabledAttrs(busy || !nextEntry)}>${isPending("next-current") ? spinnerMarkup() : iconMarkup("chevron-right")}</button>
+        <button class="lm-icon-button" type="button" data-action="random" title="${chrome.i18n.getMessage("open_random_link")}" aria-label="${chrome.i18n.getMessage("open_random_link")}" ${getDisabledAttrs(busy || !navigableEntries.length)}>${isPending("random") ? spinnerMarkup() : iconMarkup("shuffle")}</button>
       </div>
       `
           : ""
       }
       <section class="lm-panel" data-collapsed="${String(!isPanelOpen)}">
         <header class="lm-toolbar">
-          <strong>${iconMarkup("bolt")} ${extensionState.settings.captureAllClicks ? "Click" : "Shift+Click"}</strong>
+          <strong>${iconMarkup("bolt")} ${extensionState.settings.captureAllClicks ? t("capture_mode_click") : t("capture_mode_shift_click")}</strong>
           <div class="lm-toolbar-actions">
             <button class="lm-icon-button ${extensionState.settings.captureAllClicks ? "is-active" : ""}" type="button" data-action="toggle-capture-all" title="${captureToggleLabel}" aria-label="${captureToggleLabel}" ${getDisabledAttrs(busy)}>${isPending("toggle-capture-all") ? spinnerMarkup() : iconMarkup("capture")}</button>
-            <button class="lm-icon-button" type="button" data-action="save-open-tabs" title="Salva tutte le schede" aria-label="Salva tutte le schede" ${getDisabledAttrs(busy)}>${isPending("save-open-tabs") ? spinnerMarkup() : iconMarkup("tabs")}</button>
-            <button class="lm-icon-button" type="button" data-action="random" title="Apri link casuale" aria-label="Apri link casuale" ${getDisabledAttrs(busy)}>${isPending("random") ? spinnerMarkup() : iconMarkup("shuffle")}</button>
-            <button class="lm-icon-button" type="button" data-action="refresh" title="Aggiorna" aria-label="Aggiorna" ${getDisabledAttrs(busy)}>${isPending("refresh") ? spinnerMarkup() : iconMarkup("refresh")}</button>
+            <button class="lm-icon-button" type="button" data-action="save-open-tabs" title="${chrome.i18n.getMessage("save_all_tabs")}" aria-label="${chrome.i18n.getMessage("save_all_tabs")}" ${getDisabledAttrs(busy)}>${isPending("save-open-tabs") ? spinnerMarkup() : iconMarkup("tabs")}</button>
+            <button class="lm-icon-button" type="button" data-action="random" title="${chrome.i18n.getMessage("open_random_link")}" aria-label="${chrome.i18n.getMessage("open_random_link")}" ${getDisabledAttrs(busy)}>${isPending("random") ? spinnerMarkup() : iconMarkup("shuffle")}</button>
+            <button class="lm-icon-button" type="button" data-action="refresh" title="${chrome.i18n.getMessage("refresh")}" aria-label="${chrome.i18n.getMessage("refresh")}" ${getDisabledAttrs(busy)}>${isPending("refresh") ? spinnerMarkup() : iconMarkup("refresh")}</button>
           </div>
         </header>
         <section class="lm-current-card">
           <div class="lm-current-copy">
-            <span class="lm-kicker">Pagina corrente</span>
+            <span class="lm-kicker">${chrome.i18n.getMessage("current_page")}</span>
             <strong title="${escapeHtml(currentPageTitle)}">${escapeHtml(currentPageTitle)}</strong>
             <span class="lm-current-status">${escapeHtml(currentPageStatus)}</span>
           </div>
@@ -714,8 +718,8 @@ function attachUiHandlers(root) {
             replaceEntryInLocalState(result.entry);
             flashMessage(
               result.enabled
-                ? "Pagina segnata come vista"
-                : "Pagina segnata come non vista",
+                ? t("page_marked_seen")
+                : t("page_marked_unseen"),
             );
             renderBar();
             break;
@@ -732,8 +736,8 @@ function attachUiHandlers(root) {
             replaceEntryInLocalState(result.entry);
             flashMessage(
               result.enabled
-                ? "Pagina aggiunta ai favoriti"
-                : "Pagina rimossa dai favoriti",
+                ? t("page_added_favorites")
+                : t("page_removed_favorites"),
             );
             renderBar();
             break;
@@ -748,8 +752,8 @@ function attachUiHandlers(root) {
             });
             flashMessage(
               result.alreadyBookmarked
-                ? "Pagina gia tra i favoriti"
-                : "Pagina aggiunta ai favoriti",
+                ? t("page_already_in_favorites")
+                : t("page_added_favorites"),
             );
             if (result.entry) {
               addEntryToLocalState(result.entry);
@@ -766,8 +770,8 @@ function attachUiHandlers(root) {
             });
             flashMessage(
               result.removed
-                ? "Pagina rimossa dal database"
-                : "Pagina non presente nel database",
+                ? t("page_removed_database")
+                : t("page_not_in_database"),
             );
             if (currentPageState.savedEntry) {
               removeEntryFromLocalState(currentPageState.savedEntry.id);
@@ -791,8 +795,8 @@ function attachUiHandlers(root) {
                 settings.captureAllClicks;
               flashMessage(
                 nextValue
-                  ? "Salvataggio automatico link attivato"
-                  : "Salvataggio automatico link disattivato",
+                  ? t("auto_save_links_enabled")
+                  : t("auto_save_links_disabled"),
               );
             });
             break;
@@ -808,7 +812,7 @@ function attachUiHandlers(root) {
             break;
         }
       } catch (error) {
-        flashMessage(error.message || "Operazione fallita", true);
+        flashMessage(error.message || t("operation_failed"), true);
       } finally {
         clearPendingState();
         renderBar();
@@ -836,17 +840,24 @@ function placeRoot(wrapper, toastHost, root) {
 
 function formatCurrentPageStatus() {
   if (!currentPageState.savedEntry) {
-    return "Non salvata";
+    return chrome.i18n.getMessage("not_saved");
   }
 
-  const parts = ["Nel database"];
+  const savedAt = currentPageState.savedEntry.createdAt;
+
+  const parts = [
+    chrome.i18n.getMessage("saved", [new Date(savedAt).toLocaleString()]),
+  ];
 
   if (currentPageState.isSeen) {
-    parts.push("gia vista");
+    const viewedDate = currentPageState.savedEntry.viewedAt;
+    parts.push(
+      chrome.i18n.getMessage("viewed", [new Date(viewedDate).toLocaleString()]),
+    );
   }
 
   if (currentPageState.isFavorite) {
-    parts.push("favorita");
+    parts.push(chrome.i18n.getMessage("favorite"));
   }
 
   return parts.join(" • ");
@@ -1271,13 +1282,13 @@ function installStyles() {
 
 function formatSaveFeedback(status) {
   const feedback = {
-    duplicate: "Link gia presente",
-    updated: "Link aggiornato",
-    viewed: "Link gia visto",
-    saved: "Link salvato",
+    duplicate: t("link_already_present"),
+    updated: t("link_updated"),
+    viewed: t("link_already_viewed"),
+    saved: t("link_saved"),
   };
 
-  return feedback[status] || "Operazione completata";
+  return feedback[status] || t("operation_completed");
 }
 
 function getToggleStateClass(kind, isActive) {
@@ -1386,21 +1397,21 @@ function sendMessage(message) {
 
 function formatBatchSaveMessage(result) {
   if (!result?.totalCount) {
-    return "Nessuna scheda compatibile trovata";
+    return t("no_compatible_tabs_found");
   }
 
   const parts = [];
   if (result.savedCount) {
-    parts.push(`${result.savedCount} salvate`);
+    parts.push(t("batch_saved_count", [String(result.savedCount)]));
   }
   if (result.updatedCount) {
-    parts.push(`${result.updatedCount} aggiornate`);
+    parts.push(t("batch_updated_count", [String(result.updatedCount)]));
   }
   if (result.duplicateCount) {
-    parts.push(`${result.duplicateCount} gia presenti`);
+    parts.push(t("batch_duplicate_count", [String(result.duplicateCount)]));
   }
 
-  return parts.length ? parts.join(" • ") : "Nessuna nuova scheda da salvare";
+  return parts.length ? parts.join(" • ") : t("no_new_tabs_to_save");
 }
 
 function normalizeUrlForUi(input, siteRules = {}) {

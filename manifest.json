@@ -2,7 +2,8 @@
   "manifest_version": 3,
   "name": "Link Manager",
   "version": "0.4.1",
-  "description": "Manage locally saved links with seen/favorite states and optional Supabase sync.",
+  "description": "__MSG_description__",
+  "default_locale": "en",
   "permissions": ["storage", "bookmarks", "tabs", "contextMenus", "alarms"],
   "host_permissions": ["<all_urls>"],
   "background": {

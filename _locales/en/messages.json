@@ -1,0 +1,558 @@
+{
+  "description": {
+    "message": "Save and manage your favorite links"
+  },
+  "link_manager_name": {
+    "message": "Link Manager"
+  },
+  "not_saved": {
+    "message": "Not saved"
+  },
+  "saved": {
+    "message": "Saved ($date$)",
+    "placeholders": {
+      "date": {
+        "content": "$1"
+      }
+    }
+  },
+  "favorite": {
+    "message": "Favorite"
+  },
+  "viewed": {
+    "message": "Already viewed ($date$)",
+    "placeholders": {
+      "date": {
+        "content": "$1"
+      }
+    }
+  },
+  "open_link_manager": {
+    "message": "Open Link Manager"
+  },
+  "minimize_to_icon": {
+    "message": "Minimize to icon"
+  },
+  "capture_clicks": {
+    "message": "Capture all clicks"
+  },
+  "previous_link": {
+    "message": "Previous link"
+  },
+  "next_link": {
+    "message": "Next link"
+  },
+  "open_random_link": {
+    "message": "Open random link"
+  },
+  "current_page": {
+    "message": "Current page"
+  },
+  "refresh": {
+    "message": "Refresh"
+  },
+  "save_all_tabs": {
+    "message": "Save all tabs"
+  },
+  "sync_with_supabase": {
+    "message": "Sync with Supabase"
+  },
+  "sync_status": {
+    "message": "Sync status: $status$",
+    "placeholders": {
+      "status": {
+        "content": "$1"
+      }
+    }
+  },
+  "operation_completed": {
+    "message": "Operation completed"
+  },
+  "operation_failed": {
+    "message": "Operation failed"
+  },
+  "save_error": {
+    "message": "Save error"
+  },
+  "auto_save_ignored_click": {
+    "message": "Auto-save ignored for this click"
+  },
+  "remove": {
+    "message": "Remove"
+  },
+  "add": {
+    "message": "Add"
+  },
+  "current_link": {
+    "message": "current link"
+  },
+  "mark_seen": {
+    "message": "Mark as seen"
+  },
+  "unmark_seen": {
+    "message": "Mark as unseen"
+  },
+  "mark_favorite": {
+    "message": "Mark as favorite"
+  },
+  "unmark_favorite": {
+    "message": "Remove favorite"
+  },
+  "capture_auto_active": {
+    "message": "Auto click capture enabled"
+  },
+  "capture_mode_click": {
+    "message": "Click"
+  },
+  "capture_mode_shift_click": {
+    "message": "Shift+Click"
+  },
+  "page_marked_seen": {
+    "message": "Page marked as seen"
+  },
+  "page_marked_unseen": {
+    "message": "Page marked as unseen"
+  },
+  "page_added_favorites": {
+    "message": "Page added to favorites"
+  },
+  "page_removed_favorites": {
+    "message": "Page removed from favorites"
+  },
+  "page_already_in_favorites": {
+    "message": "Page already in favorites"
+  },
+  "page_removed_database": {
+    "message": "Page removed from database"
+  },
+  "page_not_in_database": {
+    "message": "Page not found in database"
+  },
+  "auto_save_links_enabled": {
+    "message": "Auto-save links enabled"
+  },
+  "auto_save_links_disabled": {
+    "message": "Auto-save links disabled"
+  },
+  "link_already_present": {
+    "message": "Link already present"
+  },
+  "link_already_viewed": {
+    "message": "Link already viewed"
+  },
+  "link_updated": {
+    "message": "Link updated"
+  },
+  "link_saved": {
+    "message": "Link saved"
+  },
+  "no_compatible_tabs_found": {
+    "message": "No compatible tabs found"
+  },
+  "batch_saved_count": {
+    "message": "$count$ saved",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "batch_updated_count": {
+    "message": "$count$ updated",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "batch_duplicate_count": {
+    "message": "$count$ already present",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "no_new_tabs_to_save": {
+    "message": "No new tabs to save"
+  },
+  "unable_load_settings": {
+    "message": "Unable to load settings"
+  },
+  "settings_saved": {
+    "message": "Settings saved"
+  },
+  "settings_save_error": {
+    "message": "Error saving settings"
+  },
+  "sending": {
+    "message": "Sending..."
+  },
+  "magic_link_sent_to": {
+    "message": "Magic link sent to $email$",
+    "placeholders": {
+      "email": {
+        "content": "$1"
+      }
+    }
+  },
+  "magic_link_send_error": {
+    "message": "Error sending magic link"
+  },
+  "sync_in_progress_short": {
+    "message": "Sync..."
+  },
+  "synced_links_count": {
+    "message": "Synced $count$ links",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "sync_error": {
+    "message": "Sync error"
+  },
+  "signing_out": {
+    "message": "Signing out..."
+  },
+  "sign_out_completed": {
+    "message": "Signed out"
+  },
+  "sign_out_error": {
+    "message": "Sign-out error"
+  },
+  "comparing": {
+    "message": "Comparing..."
+  },
+  "found_local_only_links": {
+    "message": "Found $count$ local-only links",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "local_remote_aligned": {
+    "message": "Local and remote are aligned"
+  },
+  "sync_compare_error": {
+    "message": "Sync comparison error"
+  },
+  "connected_as": {
+    "message": "Connected as $email$",
+    "placeholders": {
+      "email": {
+        "content": "$1"
+      }
+    }
+  },
+  "user_generic": {
+    "message": "user"
+  },
+  "not_authenticated": {
+    "message": "Not authenticated"
+  },
+  "never": {
+    "message": "Never"
+  },
+  "sync_in_progress": {
+    "message": "Sync in progress"
+  },
+  "pending_changes_count": {
+    "message": "$count$ changes queued",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "no_changes_queued": {
+    "message": "No changes queued"
+  },
+  "not_scheduled": {
+    "message": "Not scheduled"
+  },
+  "select_folder": {
+    "message": "Select a folder"
+  },
+  "select_folder_to_import": {
+    "message": "Select a folder to import"
+  },
+  "importing": {
+    "message": "Importing..."
+  },
+  "folder_import_error": {
+    "message": "Folder import error"
+  },
+  "invalid_rule": {
+    "message": "Invalid rule: $rule$",
+    "placeholders": {
+      "rule": {
+        "content": "$1"
+      }
+    }
+  },
+  "no_compatible_links_found_folder": {
+    "message": "No compatible links found in folder"
+  },
+  "imported_count": {
+    "message": "$count$ imported",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "updated_count": {
+    "message": "$count$ updated",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "already_present_count": {
+    "message": "$count$ already present",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "no_new_links_to_import": {
+    "message": "No new links to import"
+  },
+  "diag_local": {
+    "message": "Local"
+  },
+  "diag_remote": {
+    "message": "Remote"
+  },
+  "diag_local_only": {
+    "message": "Local only"
+  },
+  "diag_remote_only": {
+    "message": "Remote only"
+  },
+  "diag_field_mismatches": {
+    "message": "Field mismatches"
+  },
+  "diag_pending_upsert": {
+    "message": "Pending upsert"
+  },
+  "diag_pending_delete": {
+    "message": "Pending delete"
+  },
+  "diag_last_sync_revision": {
+    "message": "Last sync revision"
+  },
+  "diag_links_local_only": {
+    "message": "Links present only locally"
+  },
+  "diag_links_remote_only": {
+    "message": "Links present only remotely"
+  },
+  "diag_links_mismatched": {
+    "message": "Links with mismatched fields"
+  },
+  "unable_load_links": {
+    "message": "Unable to load links"
+  },
+  "archive": {
+    "message": "Archive"
+  },
+  "filter_unseen": {
+    "message": "Unseen"
+  },
+  "filter_favorites": {
+    "message": "Favorites"
+  },
+  "search_saved_links": {
+    "message": "Search saved links"
+  },
+  "search_saved_links_placeholder": {
+    "message": "Search in saved links"
+  },
+  "type_to_search_saved_link": {
+    "message": "Type in search to find a saved link"
+  },
+  "open_in_new_tab": {
+    "message": "Open in new tab"
+  },
+  "no_results": {
+    "message": "No results"
+  },
+  "link_removed": {
+    "message": "Link removed"
+  },
+  "link_marked_seen": {
+    "message": "Link marked as seen"
+  },
+  "link_marked_unseen": {
+    "message": "Link marked as unseen"
+  },
+  "link_added_favorites": {
+    "message": "Link added to favorites"
+  },
+  "link_removed_favorites": {
+    "message": "Link removed from favorites"
+  },
+  "pending_queue_with_flush": {
+    "message": "$count$ queued$suffix$",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      },
+      "suffix": {
+        "content": "$2"
+      }
+    }
+  },
+  "flush_at": {
+    "message": " • flush $time$",
+    "placeholders": {
+      "time": {
+        "content": "$1"
+      }
+    }
+  },
+  "popup_title": {
+    "message": "Link Manager"
+  },
+  "options_page_title": {
+    "message": "Link Manager Settings"
+  },
+  "options_intro_prefix": {
+    "message": "Save a link with"
+  },
+  "options_intro_suffix": {
+    "message": ", then open it from the mini bar on pages."
+  },
+  "open_archive_links": {
+    "message": "Open links archive"
+  },
+  "import_from_bookmarks": {
+    "message": "Import From Bookmarks"
+  },
+  "folder_to_import": {
+    "message": "Folder to import"
+  },
+  "import_links_from_folder": {
+    "message": "Import links from folder"
+  },
+  "import_as_seen": {
+    "message": "Import as already seen"
+  },
+  "import_as_favorite": {
+    "message": "Import as favorites"
+  },
+  "import_folder_description": {
+    "message": "Import into the local database all links from the selected folder, including subfolders, optionally assigning the selected internal states."
+  },
+  "bar_and_navigation": {
+    "message": "Bar and Navigation"
+  },
+  "ignore_seen_nav": {
+    "message": "Ignore seen links in previous, next, and random"
+  },
+  "ignore_fav_nav": {
+    "message": "Ignore favorite links in previous, next, and random"
+  },
+  "close_duplicate_tabs_on_load": {
+    "message": "Automatically close duplicate tabs on navigation"
+  },
+  "close_seen_tabs_on_load": {
+    "message": "Close the tab if the page is already among seen links"
+  },
+  "bar_visibility": {
+    "message": "Bar visibility"
+  },
+  "bar_visibility_always": {
+    "message": "Always show"
+  },
+  "bar_visibility_whitelist": {
+    "message": "Show only on these sites"
+  },
+  "bar_visibility_blacklist": {
+    "message": "Do not show on these sites"
+  },
+  "bar_visibility_sites": {
+    "message": "Sites for whitelist / blacklist"
+  },
+  "bar_visibility_sites_placeholder": {
+    "message": "example.com\n*.example.com"
+  },
+  "bar_visibility_help_prefix": {
+    "message": "One line per site. Exact hosts are supported, such as"
+  },
+  "bar_visibility_help_suffix": {
+    "message": "and wildcards such as"
+  },
+  "url_rules": {
+    "message": "URL Rules"
+  },
+  "url_rules_help_prefix": {
+    "message": "One line per domain. Format:"
+  },
+  "url_rules_help_suffix": {
+    "message": "or"
+  },
+  "url_rules_help_global": {
+    "message": "for a global rule."
+  },
+  "query_params_to_ignore": {
+    "message": "Query params to ignore for comparison"
+  },
+  "account_and_sync": {
+    "message": "Account and Sync"
+  },
+  "account_sync_description": {
+    "message": "Sign in with a magic link to sync the links database on Supabase across multiple browsers and devices."
+  },
+  "redirect_url_label": {
+    "message": "Redirect URL to configure in Supabase Auth:"
+  },
+  "email_label": {
+    "message": "Email"
+  },
+  "email_placeholder": {
+    "message": "name@domain.com"
+  },
+  "send_magic_link": {
+    "message": "Send magic link"
+  },
+  "account_status": {
+    "message": "Account status"
+  },
+  "last_sync": {
+    "message": "Last sync"
+  },
+  "sync_queue_status": {
+    "message": "Sync queue status"
+  },
+  "next_flush": {
+    "message": "Next flush"
+  },
+  "sync_now": {
+    "message": "Sync now"
+  },
+  "compare_local_remote": {
+    "message": "Compare local and remote"
+  },
+  "sign_out": {
+    "message": "Sign out"
+  },
+  "enable_shift_capture": {
+    "message": "Enable save with Shift+Click"
+  },
+  "open_links_new_tab": {
+    "message": "Open links in a new tab"
+  },
+  "save_settings": {
+    "message": "Save settings"
+  },
+  "toggle_current_page": {
+    "message": "Add or remove current page"
+  }
+}
