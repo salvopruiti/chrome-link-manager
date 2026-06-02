@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/salvopruiti/chrome-link-manager/compare/v1.0.0...v1.1.0) (2026-06-02)
+
+
+### Features
+
+* add sync fix functionality and update UI for sync operations ([fb784fd](https://github.com/salvopruiti/chrome-link-manager/commit/fb784fd669de1ec79065e129e44a77158013f01a))
+
 # 1.0.0 (2026-06-02)
 
 
