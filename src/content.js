@@ -2,6 +2,7 @@ const ROOT_ID = "link-manager-root";
 const WRAPPER_ID = "link-manager-wrapper";
 const STYLE_ID = "link-manager-style";
 const BAR_MODE_STORAGE_KEY = "link-manager-bar-mode";
+const BAR_MODE_VALUES = ["open", "closed", "icon"];
 
 let extensionState = {
   entries: [],
@@ -46,7 +47,7 @@ async function bootstrap() {
   }
 
   initialized = true;
-  barMode = loadBarMode();
+  barMode = await loadBarMode();
   installStyles();
   document.addEventListener("click", handleDocumentClick, true);
   window.addEventListener("focus", handleWindowFocus);
@@ -424,12 +425,33 @@ function setPendingState(action, targetId = null) {
   pendingAction = { action, targetId };
 }
 
-function loadBarMode() {
+async function loadBarMode() {
   try {
-    const storedMode = window.localStorage.getItem(BAR_MODE_STORAGE_KEY);
-    return ["open", "closed", "icon"].includes(storedMode)
-      ? storedMode
-      : "closed";
+    const storedData = await chrome.storage.local.get(BAR_MODE_STORAGE_KEY);
+    const storedMode = storedData?.[BAR_MODE_STORAGE_KEY];
+    if (BAR_MODE_VALUES.includes(storedMode)) {
+      return storedMode;
+    }
+  } catch {
+    // Fall through to legacy fallback.
+  }
+
+  try {
+    const legacyMode = window.localStorage.getItem(BAR_MODE_STORAGE_KEY);
+    if (!BAR_MODE_VALUES.includes(legacyMode)) {
+      return "closed";
+    }
+
+    try {
+      await chrome.storage.local.set({
+        [BAR_MODE_STORAGE_KEY]: legacyMode,
+      });
+      window.localStorage.removeItem(BAR_MODE_STORAGE_KEY);
+    } catch {
+      // Ignore migration failures and still use the legacy value.
+    }
+
+    return legacyMode;
   } catch {
     return "closed";
   }
@@ -439,7 +461,7 @@ function setBarMode(nextMode) {
   barMode = nextMode;
 
   try {
-    window.localStorage.setItem(BAR_MODE_STORAGE_KEY, nextMode);
+    void chrome.storage.local.set({ [BAR_MODE_STORAGE_KEY]: nextMode });
   } catch {
     // Ignore persistence errors.
   }
@@ -510,11 +532,22 @@ function renderBar() {
             </button>
           `
     : "";
+  const currentPageNavigationMarkup = `
+            <button title="Link precedente" class="lm-action-button" type="button" data-action="prev-current" data-id="${escapeHtml(previousEntry?.id || "")}" ${getDisabledAttrs(busy || !previousEntry)}>
+              ${isPending("prev-current") ? spinnerMarkup() : iconMarkup("chevron-left")}
+              <span style="display: none">Link precedente</span>
+            </button>
+            <button title="Link successivo" class="lm-action-button" type="button" data-action="next-current" data-id="${escapeHtml(nextEntry?.id || "")}" ${getDisabledAttrs(busy || !nextEntry)}>
+              ${isPending("next-current") ? spinnerMarkup() : iconMarkup("chevron-right")}
+              <span style="display: none">Link successivo</span>
+            </button>
+          `;
   const captureToggleLabel = extensionState.settings.captureAllClicks
     ? "Click automatico attivo"
     : "Salva tutti i click";
   const isIconMode = barMode === "icon";
   const isPanelOpen = barMode === "open";
+  const isCollapsedBar = barMode === "closed";
 
   root.innerHTML = isIconMode
     ? `
@@ -541,12 +574,18 @@ function renderBar() {
         </button>
       </div>
       </div>
+      ${
+        isCollapsedBar
+          ? `
       <div class="lm-quick-actions">
         ${compactCurrentPageActionsMarkup}
         <button class="lm-icon-button" type="button" data-action="prev-current" data-id="${escapeHtml(previousEntry?.id || "")}" title="Link precedente" aria-label="Link precedente" ${getDisabledAttrs(busy || !previousEntry)}>${isPending("prev-current") ? spinnerMarkup() : iconMarkup("chevron-left")}</button>
         <button class="lm-icon-button" type="button" data-action="next-current" data-id="${escapeHtml(nextEntry?.id || "")}" title="Link successivo" aria-label="Link successivo" ${getDisabledAttrs(busy || !nextEntry)}>${isPending("next-current") ? spinnerMarkup() : iconMarkup("chevron-right")}</button>
         <button class="lm-icon-button" type="button" data-action="random" title="Apri link casuale" aria-label="Apri link casuale" ${getDisabledAttrs(busy || !navigableEntries.length)}>${isPending("random") ? spinnerMarkup() : iconMarkup("shuffle")}</button>
       </div>
+      `
+          : ""
+      }
       <section class="lm-panel" data-collapsed="${String(!isPanelOpen)}">
         <header class="lm-toolbar">
           <strong>${iconMarkup("bolt")} ${extensionState.settings.captureAllClicks ? "Click" : "Shift+Click"}</strong>
@@ -569,6 +608,7 @@ function renderBar() {
               <span style="display: none">${currentToggleLabel}</span>
             </button>
             ${currentPageActionsMarkup}
+            ${currentPageNavigationMarkup}
           </div>
         </section>
       </section>
@@ -579,14 +619,13 @@ function renderBar() {
 }
 
 function attachUiHandlers(root) {
-  const panel = root.querySelector(".lm-panel");
   const toggle = root.querySelector(".lm-toggle");
   const minimize = root.querySelector('[data-action="minimize-to-icon"]');
   const iconLauncher = root.querySelector(".lm-icon-launcher");
 
   toggle?.addEventListener("click", () => {
     setBarMode(barMode === "open" ? "closed" : "open");
-    panel?.setAttribute("data-collapsed", String(barMode !== "open"));
+    renderBar();
   });
 
   minimize?.addEventListener("click", () => {
