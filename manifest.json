@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Link Manager",
-  "version": "0.4.0",
-  "description": "Gestisce link salvati localmente e li promuove ai preferiti di Chrome.",
+  "version": "0.4.1",
+  "description": "Manage locally saved links with seen/favorite states and optional Supabase sync.",
   "permissions": ["storage", "bookmarks", "tabs", "contextMenus", "alarms"],
   "host_permissions": ["<all_urls>"],
   "background": {

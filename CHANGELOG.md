@@ -2,6 +2,12 @@
 
 This file collects the main project changes, grouped by version based on the git history.
 
+## 0.4.1 - 2026-06-02
+
+- Translated `README.md` to English and aligned wording across sections.
+- Updated documentation to remove the Chrome bookmarks promotion flow.
+- Documented saved-link state management (`seen` and `favorite`) in popup/usage notes.
+
 ## 0.4.0 - 2026-06-02
 
 - Global persistence of the bar state in `chrome.storage.local`, with fallback and migration from the previous per-site save in `localStorage`.

@@ -1,50 +1,48 @@
 # Link Manager
 
-Estensione Chrome Manifest V3 per salvare link in un database locale dell'estensione e promuoverli nei preferiti di Chrome.
+Chrome Manifest V3 extension to save links in a local extension database and manage their state across devices with optional Supabase sync.
 
-## Funzioni principali
+## Main features
 
-- Shift+Click su un link: il link viene salvato nel database locale invece di essere aperto.
-- Deduplica URL: ignora sempre il frammento `#...` e può ignorare parametri query configurabili per dominio.
-- Mini barra comprimibile in pagina: lista dei link salvati, apertura, rimozione, apertura casuale, salvataggio di tutte le schede aperte.
-- Popup dell'estensione: ricerca rapida dei link salvati con apertura in nuova scheda, rimozione e promozione ai preferiti.
-- Promozione ai preferiti di Chrome: un pulsante sposta il link dal database locale alla cartella preferiti configurata.
-- Accesso con magic link Supabase e sincronizzazione manuale del database link tra dispositivi.
+- Shift+Click on a link: saves the link to the local database instead of opening it.
+- URL deduplication: always ignores the `#...` fragment and can ignore configurable query parameters per domain.
+- Collapsible in-page bar: list saved links, open, remove, open random, and save all currently open tabs.
+- Extension popup: quickly search saved links, open in a new tab, remove, and toggle `seen` / `favorite` states.
+- Saved-link state management: links can be marked as seen or favorite from the UI.
+- Supabase magic link login and manual synchronization of the links database across devices.
 
-## Struttura
+## Structure
 
-- `manifest.json`: configurazione estensione MV3.
-- `src/background.js`: storage, normalizzazione URL, integrazione con bookmarks e tabs.
-- `src/supabase-config.js`: configurazione interna del progetto Supabase usato da auth e sync.
-- `src/auth-callback.html` + `src/auth-callback.js`: callback del magic link per completare la sessione Supabase.
-- `src/content.js`: intercettazione Shift+Click e mini barra in pagina.
-- `src/popup.html` + `src/popup.js`: popup dell'azione con ricerca rapida nei link salvati.
-- `src/options.html` + `src/options.js`: configurazione cartella preferiti, regole query per sito, login magic link e sync manuale.
-- `src/options.html` + `src/options.js`: configurazione cartella preferiti, regole query per sito e credenziali Supabase.
+- `manifest.json`: MV3 extension configuration.
+- `src/background.js`: storage, URL normalization, extension actions, and tabs integration.
+- `src/supabase-config.js`: internal Supabase project configuration used by auth and sync.
+- `src/auth-callback.html` + `src/auth-callback.js`: magic link callback flow to complete the Supabase session.
+- `src/content.js`: Shift+Click interception and in-page mini bar.
+- `src/popup.html` + `src/popup.js`: action popup with quick search for saved links.
+- `src/options.html` + `src/options.js`: query-rule settings, magic link login, and manual sync.
 
-## Installazione locale
+## Local installation
 
-1. Apri `chrome://extensions`.
-2. Abilita `Developer mode`.
-3. Clicca `Load unpacked`.
-4. Seleziona la cartella del progetto.
+1. Open `chrome://extensions`.
+2. Enable `Developer mode`.
+3. Click `Load unpacked`.
+4. Select the project folder.
 
-## Uso
+## Usage
 
-1. Apri la pagina opzioni dell'estensione e imposta il nome della cartella preferiti.
-2. Clicca `Crea/Trova cartella` per memorizzare la cartella sulla barra dei preferiti.
-3. Inserisci la tua email nella sezione `Account e Sync` e invia il magic link.
-4. Apri il link ricevuto via email per completare l'accesso.
-5. Usa `Sincronizza ora` per allineare il database locale con Supabase.
-6. Naviga su un sito e usa Shift+Click su un link per salvarlo.
-7. Apri la mini barra in basso a destra per gestire i link.
-8. Clicca l'icona dell'estensione per cercare rapidamente un link salvato dal popup.
+1. Open the extension options page.
+2. Enter your email in the `Account & Sync` section and send the magic link.
+3. Open the link received by email to complete login.
+4. Use `Sync now` to align the local database with Supabase.
+5. Browse a website and use Shift+Click on a link to save it.
+6. Open the mini bar in the bottom-right corner to manage links.
+7. Mark saved links as seen or favorite where needed.
+8. Click the extension icon to quickly search saved links from the popup.
 
-## Note tecniche
+## Technical notes
 
-- I dati vengono salvati in `chrome.storage.local`.
-- Le impostazioni utente vengono salvate in `chrome.storage.sync`, mentre `bookmarkFolderId`, la sessione auth e il database dei link restano locali.
-- Per il magic link devi aggiungere `chrome-extension://<EXTENSION_ID>/src/auth-callback.html` tra i redirect URL consentiti nelle impostazioni Auth di Supabase.
-- Lo schema iniziale Supabase per la tabella `links` e le policy RLS e in `supabase/schema.sql`.
-- Se una cartella preferiti configurata viene eliminata, l'estensione ne crea una nuova alla successiva promozione.
-- Le regole wildcard supportano il formato `*.dominio.tld`.
+- Data is stored in `chrome.storage.local`.
+- User settings are stored in `chrome.storage.sync`, while auth session and links database remain local.
+- For magic link login, add `chrome-extension://<EXTENSION_ID>/src/auth-callback.html` to allowed redirect URLs in Supabase Auth settings.
+- The initial Supabase schema for the `links` table and RLS policies is in `supabase/schema.sql`.
+- Wildcard rules support the format `*.domain.tld`.
