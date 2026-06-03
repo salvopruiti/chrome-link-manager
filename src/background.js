@@ -253,13 +253,13 @@ async function runScheduledPendingSyncFlush() {
 
 function formatSaveStatusMessage(status) {
   const feedback = {
-    duplicate: "Link gia presente",
-    updated: "Stato link aggiornato",
-    viewed: "Link gia visto",
-    saved: "Link salvato",
+    duplicate: chrome.i18n.getMessage("link_already_present"),
+    updated: chrome.i18n.getMessage("link_updated"),
+    viewed: chrome.i18n.getMessage("link_already_viewed"),
+    saved: chrome.i18n.getMessage("link_saved"),
   };
 
-  return feedback[status] || "Operazione completata";
+  return feedback[status] || chrome.i18n.getMessage("operation_completed");
 }
 
 async function sendToastToTab(tabId, text, isError = false) {

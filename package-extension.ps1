@@ -26,6 +26,7 @@ if (Test-Path $packagePath) {
 }
 
 $itemsToPack = @(
+    (Join-Path $projectRoot '_locales')
     (Join-Path $projectRoot 'manifest.json')
     (Join-Path $projectRoot 'README.md')
     (Join-Path $projectRoot 'src')

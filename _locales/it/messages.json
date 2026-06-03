@@ -120,7 +120,7 @@
     "message": "Pagina rimossa dai favoriti"
   },
   "page_already_in_favorites": {
-    "message": "Pagina gia tra i favoriti"
+    "message": "Pagina già tra i favoriti"
   },
   "page_removed_database": {
     "message": "Pagina rimossa dal database"
@@ -135,10 +135,10 @@
     "message": "Salvataggio automatico link disattivato"
   },
   "link_already_present": {
-    "message": "Link gia presente"
+    "message": "Link già presente"
   },
   "link_already_viewed": {
-    "message": "Link gia visto"
+    "message": "Link già visto"
   },
   "link_updated": {
     "message": "Link aggiornato"
@@ -166,7 +166,7 @@
     }
   },
   "batch_duplicate_count": {
-    "message": "$count$ gia presenti",
+    "message": "$count$ già presenti",
     "placeholders": {
       "count": {
         "content": "$1"
@@ -313,7 +313,7 @@
     }
   },
   "already_present_count": {
-    "message": "$count$ gia presenti",
+    "message": "$count$ già presenti",
     "placeholders": {
       "count": {
         "content": "$1"
@@ -442,7 +442,7 @@
     "message": "Importa link da cartella"
   },
   "import_as_seen": {
-    "message": "Importa come gia visti"
+    "message": "Importa come già visti"
   },
   "import_as_favorite": {
     "message": "Importa come favoriti"
@@ -454,7 +454,7 @@
     "message": "Barra e Navigazione"
   },
   "ignore_seen_nav": {
-    "message": "Ignora i link gia visti in avanti, indietro e casuale"
+    "message": "Ignora i link già visti in avanti, indietro e casuale"
   },
   "ignore_fav_nav": {
     "message": "Ignora i link favoriti in avanti, indietro e casuale"
@@ -463,7 +463,7 @@
     "message": "Chiudi automaticamente le tab duplicate alla navigazione"
   },
   "close_seen_tabs_on_load": {
-    "message": "Chiudi la scheda se la pagina e gia presente tra i link visti"
+    "message": "Chiudi la scheda se la pagina e già presente tra i link visti"
   },
   "bar_visibility": {
     "message": "Visibilita barra"
