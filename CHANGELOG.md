@@ -1,3 +1,10 @@
+## [1.1.2](https://github.com/salvopruiti/chrome-link-manager/compare/v1.1.1...v1.1.2) (2026-06-03)
+
+
+### Bug Fixes
+
+* correct Italian translations and improve message retrieval in background script ([aab2bbf](https://github.com/salvopruiti/chrome-link-manager/commit/aab2bbf4cc41579cd8bd173822482bde7cf7f3db))
+
 ## [1.1.1](https://github.com/salvopruiti/chrome-link-manager/compare/v1.1.0...v1.1.1) (2026-06-03)
 
 
