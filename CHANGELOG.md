@@ -1,3 +1,10 @@
+## [1.1.1](https://github.com/salvopruiti/chrome-link-manager/compare/v1.1.0...v1.1.1) (2026-06-03)
+
+
+### Bug Fixes
+
+* correct property name for viewed date in current page status ([0b53af3](https://github.com/salvopruiti/chrome-link-manager/commit/0b53af3d0d98630ca3b3982f29abdf35d5a68be4))
+
 # [1.1.0](https://github.com/salvopruiti/chrome-link-manager/compare/v1.0.0...v1.1.0) (2026-06-02)
 
 
