@@ -848,7 +848,7 @@ function formatCurrentPageStatus() {
   ];
 
   if (currentPageState.isSeen) {
-    const viewedDate = currentPageState.savedEntry.viewedAt;
+    const viewedDate = currentPageState.savedEntry.seenAt;
     parts.push(
       chrome.i18n.getMessage("viewed", [new Date(viewedDate).toLocaleString()]),
     );
