@@ -28,10 +28,12 @@ const SYNC_FLUSH_DEBOUNCE_MS = 15000;
 const SYNC_PERIODIC_FLUSH_MINUTES = 2;
 const SYNC_FLUSH_ALARM = "pending-sync-flush";
 const SYNC_PERIODIC_ALARM = "periodic-sync-flush";
+const REDIRECT_TRACK_WINDOW_MS = 30000;
 
 const CONTEXT_MENU_ID = "save-link-from-context-menu";
 let pendingSyncFlushPromise = null;
 let isPendingSyncFlushRunning = false;
+const pendingRedirectEntryByTabId = new Map();
 
 const DEFAULT_SETTINGS = {
   captureWithShift: true,
@@ -87,6 +89,31 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
   }
 
   void handleContextMenuSave(info, tab);
+});
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.status !== "complete") {
+    return;
+  }
+
+  const trackedRedirect = pendingRedirectEntryByTabId.get(tabId);
+  if (!trackedRedirect) {
+    return;
+  }
+
+  if (tab?.url !== trackedRedirect.expectedUrl) {
+    const finalUrl =
+      typeof tab?.url === "string" ? tab.url : trackedRedirect.initialUrl;
+
+    void syncRedirectedEntryUrl(tabId, finalUrl);
+    return;
+  }
+
+  pendingRedirectEntryByTabId.delete(tabId);
+});
+
+chrome.tabs.onRemoved.addListener((tabId) => {
+  pendingRedirectEntryByTabId.delete(tabId);
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -1491,7 +1518,9 @@ async function openLink(
         ? false
         : settings.openLinksInNewTab;
 
-  await openUrl(entry.url, Boolean(active), shouldOpenInNewTab, sender);
+  await openUrl(entry.url, Boolean(active), shouldOpenInNewTab, sender, {
+    entryId: entry.id,
+  });
   return entry;
 }
 
@@ -1506,7 +1535,10 @@ async function openRandomLink(sender, context = {}) {
 
   const entry =
     navigationEntries[Math.floor(Math.random() * navigationEntries.length)];
-  await openUrl(entry.url, true, settings.openLinksInNewTab, sender, context);
+  await openUrl(entry.url, true, settings.openLinksInNewTab, sender, {
+    ...context,
+    entryId: entry.id,
+  });
   return entry;
 }
 
@@ -1539,15 +1571,92 @@ async function openUrl(url, active, openInNewTab, sender, context = {}) {
         : undefined;
 
   if (!openInNewTab && targetTabId !== null) {
-    await chrome.tabs.update(targetTabId, { url, active: Boolean(active) });
+    const tab = await chrome.tabs.update(targetTabId, {
+      url,
+      active: Boolean(active),
+    });
+    trackRedirectCandidate(tab?.id ?? targetTabId, context?.entryId, url);
     return;
   }
 
-  await chrome.tabs.create({
+  const tab = await chrome.tabs.create({
     url,
     active: Boolean(active),
     ...(typeof targetWindowId === "number" ? { windowId: targetWindowId } : {}),
   });
+  trackRedirectCandidate(tab?.id, context?.entryId, url);
+}
+
+function trackRedirectCandidate(tabId, entryId, initialUrl) {
+  if (typeof tabId !== "number" || typeof entryId !== "string" || !entryId) {
+    return;
+  }
+
+  pendingRedirectEntryByTabId.set(tabId, {
+    entryId,
+    initialUrl,
+    trackedAt: Date.now(),
+  });
+}
+
+async function syncRedirectedEntryUrl(tabId, finalUrl) {
+  const trackedRedirect = pendingRedirectEntryByTabId.get(tabId);
+  pendingRedirectEntryByTabId.delete(tabId);
+
+  if (!trackedRedirect) {
+    return;
+  }
+
+  if (Date.now() - trackedRedirect.trackedAt > REDIRECT_TRACK_WINDOW_MS) {
+    return;
+  }
+
+  if (!isSavableUrl(finalUrl)) {
+    return;
+  }
+
+  const settings = await getSettings();
+  const entries = await getEntries();
+  const currentEntry =
+    entries.find((entry) => entry.id === trackedRedirect.entryId) || null;
+
+  if (!currentEntry) {
+    return;
+  }
+
+  if (currentEntry.url !== trackedRedirect.initialUrl) {
+    return;
+  }
+
+  const normalizedUrl = normalizeUrl(finalUrl, settings.siteRules);
+  const conflictingEntry = entries.find(
+    (entry) =>
+      entry.id !== currentEntry.id && entry.normalizedUrl === normalizedUrl,
+  );
+
+  if (conflictingEntry) {
+    await removeLink(currentEntry.id);
+    await sendToastToTab(
+      tabId,
+      "Link rimosso: il redirect punta a un URL gia presente.",
+    );
+    return;
+  }
+
+  if (
+    currentEntry.url === finalUrl &&
+    currentEntry.normalizedUrl === normalizedUrl
+  ) {
+    return;
+  }
+
+  await updateLink({
+    ...currentEntry,
+    url: finalUrl,
+    normalizedUrl,
+    updatedAt: new Date().toISOString(),
+  });
+  await sendToastToTab(tabId, "URL del link aggiornato dopo redirect.");
 }
 
 async function promoteLink(id) {
