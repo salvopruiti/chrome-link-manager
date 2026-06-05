@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/salvopruiti/chrome-link-manager/compare/v1.1.2...v1.2.0) (2026-06-05)
+
+
+### Features
+
+* implement tracking and syncing of redirected URLs in tabs ([467bb06](https://github.com/salvopruiti/chrome-link-manager/commit/467bb060f4b27b96600c23010f86baa507f3b709))
+
 ## [1.1.2](https://github.com/salvopruiti/chrome-link-manager/compare/v1.1.1...v1.1.2) (2026-06-03)
 
 
