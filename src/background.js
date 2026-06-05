@@ -914,10 +914,12 @@ function mergeEntriesForSync(localEntries, remoteLinks) {
     });
   }
 
-  return [...merged.values()].sort((left, right) =>
-    String(right.updatedAt || right.createdAt || "").localeCompare(
-      String(left.updatedAt || left.createdAt || ""),
-    ),
+  return [...merged.values()].sort(compareEntriesByCreatedAtDesc);
+}
+
+function compareEntriesByCreatedAtDesc(left, right) {
+  return String(right.createdAt || right.updatedAt || "").localeCompare(
+    String(left.createdAt || left.updatedAt || ""),
   );
 }
 
@@ -940,6 +942,7 @@ function normalizeEntries(entries) {
         ? entry.updatedAt || entry.createdAt || new Date().toISOString()
         : null),
   }));
+  //.sort(compareEntriesByCreatedAtDesc);
 }
 
 function serializePendingUpsert(entry) {

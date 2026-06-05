@@ -261,8 +261,8 @@
 
       .row-actions {
         display: flex;
-        gap: 6px;
-        flex-wrap: wrap;
+        gap: 3px;
+        flex-wrap: nowrap;
         white-space: normal;
       }
 
@@ -420,8 +420,10 @@
             </div>
             <div class="pagination">
               <span id="paginationInfo" class="pagination-info"></span>
+              <button id="firstPageButton" type="button" class="secondary">Prima</button>              
               <button id="prevPageButton" type="button" class="secondary">Prec</button>
               <button id="nextPageButton" type="button" class="secondary">Succ</button>
+              <button id="lastPageButton" type="button" class="secondary">Ultima</button>
             </div>
           </div>
           <p id="syncHint" class="sync-hint"></p>

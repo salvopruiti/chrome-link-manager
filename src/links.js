@@ -9,7 +9,9 @@ const archiveCancelButton = document.getElementById("archiveCancelButton");
 const archiveResetButton = document.getElementById("archiveResetButton");
 const openCreateModalButton = document.getElementById("openCreateModalButton");
 const archiveModalNode = document.getElementById("archiveModal");
-const archiveModalCloseButton = document.getElementById("archiveModalCloseButton");
+const archiveModalCloseButton = document.getElementById(
+  "archiveModalCloseButton",
+);
 const archiveFormMetaNode = document.getElementById("archiveFormMeta");
 const archiveListNode = document.getElementById("archiveList");
 const statusNode = document.getElementById("status");
@@ -22,14 +24,17 @@ const filterFavoriteButton = document.getElementById("filterFavoriteButton");
 const paginationInfoNode = document.getElementById("paginationInfo");
 const prevPageButton = document.getElementById("prevPageButton");
 const nextPageButton = document.getElementById("nextPageButton");
+const firstPageButton = document.getElementById("firstPageButton");
+const lastPageButton = document.getElementById("lastPageButton");
 
-const ITEMS_PER_PAGE = 20;
+const ITEMS_PER_PAGE = 100;
 
 const archiveState = {
   entries: [],
   searchQuery: "",
   editingId: null,
   currentPage: 1,
+  totalPages: 1,
   filters: {
     unseenOnly: false,
     seenOnly: false,
@@ -47,11 +52,17 @@ archiveModalNode.addEventListener("click", handleModalBackdropClick);
 archiveListNode.addEventListener("click", handleArchiveListClick);
 refreshButton.addEventListener("click", refreshState);
 openOptionsButton.addEventListener("click", openOptionsPage);
-filterUnseenButton.addEventListener("click", () => toggleQuickFilter("unseenOnly"));
+filterUnseenButton.addEventListener("click", () =>
+  toggleQuickFilter("unseenOnly"),
+);
 filterSeenButton.addEventListener("click", () => toggleQuickFilter("seenOnly"));
-filterFavoriteButton.addEventListener("click", () => toggleQuickFilter("favoriteOnly"));
+filterFavoriteButton.addEventListener("click", () =>
+  toggleQuickFilter("favoriteOnly"),
+);
 prevPageButton.addEventListener("click", () => changePage(-1));
 nextPageButton.addEventListener("click", () => changePage(1));
+firstPageButton.addEventListener("click", () => changePage(-Infinity));
+lastPageButton.addEventListener("click", () => changePage(Infinity));
 
 void init();
 
@@ -81,19 +92,24 @@ function handleArchiveSearch(event) {
 function getFilteredArchiveEntries() {
   const normalizedQuery = archiveState.searchQuery.trim().toLowerCase();
 
-  return archiveState.entries.filter((entry) =>
-    matchesQuickFilters(entry) &&
-    (!normalizedQuery ||
-      [entry.title, entry.url, entry.pageUrl]
-        .filter(Boolean)
-        .some((value) => value.toLowerCase().includes(normalizedQuery))),
+  return archiveState.entries.filter(
+    (entry) =>
+      matchesQuickFilters(entry) &&
+      (!normalizedQuery ||
+        [entry.title, entry.url, entry.pageUrl]
+          .filter(Boolean)
+          .some((value) => value.toLowerCase().includes(normalizedQuery))),
   );
 }
 
 function renderArchiveList() {
   const filteredEntries = getFilteredArchiveEntries();
-  const totalPages = Math.max(1, Math.ceil(filteredEntries.length / ITEMS_PER_PAGE));
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredEntries.length / ITEMS_PER_PAGE),
+  );
   archiveState.currentPage = Math.min(archiveState.currentPage, totalPages);
+  archiveState.totalPages = totalPages;
   const pageStart = (archiveState.currentPage - 1) * ITEMS_PER_PAGE;
   const visibleEntries = filteredEntries.slice(
     pageStart,
@@ -117,17 +133,13 @@ function renderArchiveList() {
     <table class="table">
       <thead>
         <tr>
-          <th>Titolo</th>
-          <th>URL</th>
-          <th>Origine</th>
-          <th>Stato</th>
+          <th>Titolo</th>       
+          <th>Data</th>   
           <th>Azioni</th>
         </tr>
       </thead>
       <tbody>
-        ${visibleEntries
-          .map((entry) => renderTableRow(entry))
-          .join("")}
+        ${visibleEntries.map((entry) => renderTableRow(entry)).join("")}
       </tbody>
     </table>`;
 }
@@ -143,12 +155,13 @@ function renderTableRow(entry) {
     badges.push('<span class="badge favorite">Favorito</span>');
   }
 
+  //${badges.length ? `<div class="badge-row">${badges.join("")}</div>` : '<span class="cell-page-url">-</span>'}
+
   return `
     <tr data-id="${escapeHtml(entry.id)}">
-      <td><div class="cell-title" title="${escapeHtml(entry.title)}">${escapeHtml(entry.title)}</div></td>
-      <td><div class="cell-url" title="${escapeHtml(entry.url)}">${escapeHtml(entry.url)}</div></td>
-      <td><div class="cell-page-url" title="${escapeHtml(entry.pageUrl || "")}">${escapeHtml(entry.pageUrl || "-")}</div></td>
-      <td>${badges.length ? `<div class="badge-row">${badges.join("")}</div>` : '<span class="cell-page-url">-</span>'}</td>
+      <td><div class="cell-title" title="${escapeHtml(entry.title)}">${escapeHtml(entry.title)}</div>
+      <div class="cell-url" title="${escapeHtml(entry.url)}">${escapeHtml(entry.url)}</div></td>
+      <td><div class="cell-date">${formatDateTime(entry.createdAt)}</div></td>
       <td>
         <div class="row-actions">
           <button type="button" class="secondary icon-button" data-action="open" data-id="${escapeHtml(entry.id)}" title="Apri link" aria-label="Apri link">${iconMarkup("chevron-right")}</button>
@@ -370,7 +383,11 @@ async function handleArchiveListClick(event) {
       replaceEntryInState(result.entry);
       syncEditingEntry(result.entry);
       renderArchiveList();
-      setStatus(result.enabled ? "Link segnato come visto" : "Link segnato come non visto");
+      setStatus(
+        result.enabled
+          ? "Link segnato come visto"
+          : "Link segnato come non visto",
+      );
     } catch (error) {
       await refreshState();
       setStatus(error.message || "Errore aggiornamento stato", true);
@@ -396,7 +413,11 @@ async function handleArchiveListClick(event) {
       replaceEntryInState(result.entry);
       syncEditingEntry(result.entry);
       renderArchiveList();
-      setStatus(result.enabled ? "Link aggiunto ai favoriti" : "Link rimosso dai favoriti");
+      setStatus(
+        result.enabled
+          ? "Link aggiunto ai favoriti"
+          : "Link rimosso dai favoriti",
+      );
     } catch (error) {
       await refreshState();
       setStatus(error.message || "Errore aggiornamento stato", true);
@@ -430,7 +451,9 @@ function replaceEntryInState(entry) {
 }
 
 function removeEntryFromState(entryId) {
-  archiveState.entries = archiveState.entries.filter((entry) => entry.id !== entryId);
+  archiveState.entries = archiveState.entries.filter(
+    (entry) => entry.id !== entryId,
+  );
 }
 
 function createOptimisticEntry(entry, flagKey, timestampKey) {
@@ -449,18 +472,26 @@ function renderPagination(totalItems, pageStart, pageEnd, totalPages) {
   if (!totalItems) {
     paginationInfoNode.textContent = "0 risultati";
     prevPageButton.disabled = true;
+    firstPageButton.disabled = true;
+    lastPageButton.disabled = true;
     nextPageButton.disabled = true;
     return;
   }
 
   paginationInfoNode.textContent = `${pageStart + 1}-${pageEnd} di ${totalItems}`;
+  firstPageButton.disabled = archiveState.currentPage <= 1;
   prevPageButton.disabled = archiveState.currentPage <= 1;
   nextPageButton.disabled = archiveState.currentPage >= totalPages;
+  lastPageButton.disabled = archiveState.currentPage >= totalPages;
 }
 
 function changePage(delta) {
   const filteredEntries = getFilteredArchiveEntries();
-  const totalPages = Math.max(1, Math.ceil(filteredEntries.length / ITEMS_PER_PAGE));
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredEntries.length / ITEMS_PER_PAGE),
+  );
+  archiveState.totalPages = totalPages;
   archiveState.currentPage = Math.min(
     totalPages,
     Math.max(1, archiveState.currentPage + delta),
@@ -482,16 +513,14 @@ function iconMarkup(name) {
       '<span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m9.55 18.02-5.03-5.03 1.41-1.41 3.62 3.61 8.52-8.51 1.41 1.41-9.93 9.93Z"/></svg></span>',
     "check-badge":
       '<span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2.75 4 5.7v5.86c0 4.84 3.18 9.35 8 10.69 4.82-1.34 8-5.85 8-10.69V5.7L12 2.75Zm3.57 7.98-4.34 4.34-2.8-2.79 1.41-1.42 1.39 1.39 2.93-2.93 1.41 1.41Z"/></svg></span>',
-    star:
-      '<span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m12 17.27 6.18 3.73-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21 12 17.27Z"/></svg></span>',
+    star: '<span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m12 17.27 6.18 3.73-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21 12 17.27Z"/></svg></span>',
     "star-filled":
       '<span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m12 2 2.81 6.63 7.19.61-5.46 4.73 1.64 7.03L12 17.27 5.82 21l1.64-7.03L2 9.24l7.19-.61L12 2Z"/></svg></span>',
     trash:
       '<span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 3h6l1 2h4v2H4V5h4l1-2Zm-1 6h2v8H8V9Zm6 0h2v8h-2V9ZM6 9h12l-1 11H7L6 9Z"/></svg></span>',
     "chevron-right":
       '<span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m8.59 16.59 1.41 1.41 6-6-6-6-1.41 1.41L13.17 12z"/></svg></span>',
-    edit:
-      '<span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25Zm14.71-9.04a1.003 1.003 0 0 0 0-1.42l-2.5-2.5a1.003 1.003 0 0 0-1.42 0l-1.96 1.96 3.75 3.75 2.13-1.79Z"/></svg></span>',
+    edit: '<span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25Zm14.71-9.04a1.003 1.003 0 0 0 0-1.42l-2.5-2.5a1.003 1.003 0 0 0-1.42 0l-1.96 1.96 3.75 3.75 2.13-1.79Z"/></svg></span>',
   };
 
   return icons[name] || "";
