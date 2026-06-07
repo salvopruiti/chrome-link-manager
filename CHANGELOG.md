@@ -1,3 +1,10 @@
+## [1.2.1](https://github.com/salvopruiti/chrome-link-manager/compare/v1.2.0...v1.2.1) (2026-06-07)
+
+
+### Bug Fixes
+
+* prevent duplicate key violation when syncing updated link urls to supabase ([986bdcb](https://github.com/salvopruiti/chrome-link-manager/commit/986bdcbd6ea44046d7cd8ebc99fb69219d103237))
+
 # [1.2.0](https://github.com/salvopruiti/chrome-link-manager/compare/v1.1.2...v1.2.0) (2026-06-05)
 
 
