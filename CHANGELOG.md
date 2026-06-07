@@ -1,3 +1,10 @@
+# [1.4.0](https://github.com/salvopruiti/chrome-link-manager/compare/v1.3.0...v1.4.0) (2026-06-07)
+
+
+### Features
+
+* restyle options and archive UI, add archive query string state, fix modal/X/errors ([3d6156d](https://github.com/salvopruiti/chrome-link-manager/commit/3d6156de35c0ff8dbfd473a0d7a4469b63faf137))
+
 # [1.3.0](https://github.com/salvopruiti/chrome-link-manager/compare/v1.2.1...v1.3.0) (2026-06-07)
 
 
