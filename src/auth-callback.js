@@ -31,7 +31,7 @@ async function completeAuth() {
     (!session.access_token || !session.refresh_token) &&
     !session.token_hash
   ) {
-    setStatus("Link di accesso non valido o incompleto.", true);
+    setStatus(chrome.i18n.getMessage("auth_invalid_link"), true);
     return;
   }
 
@@ -40,10 +40,10 @@ async function completeAuth() {
       type: "complete-auth-session",
       payload: session,
     });
-    setStatus("Accesso completato. Puoi chiudere questa scheda.");
+    setStatus(chrome.i18n.getMessage("auth_completed"));
   } catch (errorInstance) {
     setStatus(
-      errorInstance.message || "Impossibile completare l'accesso.",
+      errorInstance.message || chrome.i18n.getMessage("auth_complete_error"),
       true,
     );
   }

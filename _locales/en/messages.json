@@ -579,5 +579,88 @@
   },
   "toggle_current_page": {
     "message": "Add or remove current page"
+  },
+  "title_label": {
+    "message": "Title"
+  },
+  "date_label": {
+    "message": "Date"
+  },
+  "actions_label": {
+    "message": "Actions"
+  },
+  "save_changes": {
+    "message": "Save changes"
+  },
+  "add_link": {
+    "message": "Add link"
+  },
+  "edit_link_prefix": {
+    "message": "Edit selected link: $title$",
+    "placeholders": {
+      "title": {
+        "content": "$1"
+      }
+    }
+  },
+  "add_manually_hint": {
+    "message": "Add a link manually or select one from the list to edit."
+  },
+  "enter_valid_url": {
+    "message": "Enter a valid URL"
+  },
+  "link_added": {
+    "message": "Link added"
+  },
+  "error_saving_link": {
+    "message": "Error saving link"
+  },
+  "link_opened_new_tab": {
+    "message": "Link opened in a new tab"
+  },
+  "error_opening_link": {
+    "message": "Error opening link"
+  },
+  "error_updating_status": {
+    "message": "Error updating status"
+  },
+  "link_deleted": {
+    "message": "Link deleted"
+  },
+  "error_deleting_link": {
+    "message": "Error deleting link"
+  },
+  "archive_up_to_date": {
+    "message": "Local archive up to date"
+  },
+  "saving_short": {
+    "message": "Saving..."
+  },
+  "adding_short": {
+    "message": "Adding..."
+  },
+  "no_links_saved_yet": {
+    "message": "No links saved yet"
+  },
+  "no_search_results": {
+    "message": "No links match your search"
+  },
+  "edit_link_title": {
+    "message": "Edit link"
+  },
+  "seen_badge": {
+    "message": "Seen"
+  },
+  "favorite_badge": {
+    "message": "Favorite"
+  },
+  "auth_invalid_link": {
+    "message": "Invalid or incomplete access link."
+  },
+  "auth_completed": {
+    "message": "Access completed. You can close this tab."
+  },
+  "auth_complete_error": {
+    "message": "Unable to complete access."
   }
 }

@@ -579,5 +579,88 @@
   },
   "toggle_current_page": {
     "message": "Aggiungi o rimuovi pagina corrente"
+  },
+  "title_label": {
+    "message": "Titolo"
+  },
+  "date_label": {
+    "message": "Data"
+  },
+  "actions_label": {
+    "message": "Azioni"
+  },
+  "save_changes": {
+    "message": "Salva modifiche"
+  },
+  "add_link": {
+    "message": "Aggiungi link"
+  },
+  "edit_link_prefix": {
+    "message": "Modifica il link selezionato: $title$",
+    "placeholders": {
+      "title": {
+        "content": "$1"
+      }
+    }
+  },
+  "add_manually_hint": {
+    "message": "Aggiungi manualmente un link oppure selezionane uno dalla lista per modificarlo."
+  },
+  "enter_valid_url": {
+    "message": "Inserisci un URL valido"
+  },
+  "link_added": {
+    "message": "Link aggiunto"
+  },
+  "error_saving_link": {
+    "message": "Errore salvataggio link"
+  },
+  "link_opened_new_tab": {
+    "message": "Link aperto in una nuova scheda"
+  },
+  "error_opening_link": {
+    "message": "Errore apertura link"
+  },
+  "error_updating_status": {
+    "message": "Errore aggiornamento stato"
+  },
+  "link_deleted": {
+    "message": "Link eliminato"
+  },
+  "error_deleting_link": {
+    "message": "Errore eliminazione link"
+  },
+  "archive_up_to_date": {
+    "message": "Archivio locale aggiornato"
+  },
+  "saving_short": {
+    "message": "Salvataggio..."
+  },
+  "adding_short": {
+    "message": "Aggiunta..."
+  },
+  "no_links_saved_yet": {
+    "message": "Nessun link salvato al momento"
+  },
+  "no_search_results": {
+    "message": "Nessun link corrisponde alla ricerca"
+  },
+  "edit_link_title": {
+    "message": "Modifica link"
+  },
+  "seen_badge": {
+    "message": "Visto"
+  },
+  "favorite_badge": {
+    "message": "Favorito"
+  },
+  "auth_invalid_link": {
+    "message": "Link di accesso non valido o incompleto."
+  },
+  "auth_completed": {
+    "message": "Accesso completato. Puoi chiudere questa scheda."
+  },
+  "auth_complete_error": {
+    "message": "Impossibile completare l'accesso."
   }
 }
