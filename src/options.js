@@ -385,7 +385,7 @@ function formatSiteList(sites) {
 
 function setStatus(message, isError = false) {
   statusNode.textContent = message;
-  statusNode.style.color = isError ? "#c0392b" : "#2c6e49";
+  statusNode.style.color = isError ? "#e74c3c" : "#54d69a";
 }
 
 function setButtonBusy(button, busy, busyLabel = "") {

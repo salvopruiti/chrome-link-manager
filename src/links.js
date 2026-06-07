@@ -30,6 +30,7 @@ const prevPageButton = document.getElementById("prevPageButton");
 const nextPageButton = document.getElementById("nextPageButton");
 const firstPageButton = document.getElementById("firstPageButton");
 const lastPageButton = document.getElementById("lastPageButton");
+const modalStatusNode = document.getElementById("modalStatus");
 
 const ITEMS_PER_PAGE = 100;
 
@@ -73,6 +74,9 @@ document.addEventListener("visibilitychange", () => {
   }
 });
 
+readQueryParams();
+archiveSearchInput.value = archiveState.searchQuery;
+
 void init();
 
 async function init() {
@@ -83,6 +87,33 @@ async function init() {
   } catch (error) {
     setStatus(error.message || t("unable_load_links"), true);
   }
+}
+
+function readQueryParams() {
+  const params = new URLSearchParams(location.search);
+  archiveState.searchQuery = params.get("q") || "";
+  const page = parseInt(params.get("page"), 10);
+  if (page > 0) archiveState.currentPage = page;
+  if (params.get("unseen") === "1") {
+    archiveState.filters.unseenOnly = true;
+    archiveState.filters.seenOnly = false;
+  }
+  if (params.get("seen") === "1") {
+    archiveState.filters.seenOnly = true;
+    archiveState.filters.unseenOnly = false;
+  }
+  if (params.get("fav") === "1") archiveState.filters.favoriteOnly = true;
+}
+
+function writeQueryParams() {
+  const p = new URLSearchParams();
+  if (archiveState.searchQuery.trim()) p.set("q", archiveState.searchQuery.trim());
+  if (archiveState.currentPage > 1) p.set("page", String(archiveState.currentPage));
+  if (archiveState.filters.unseenOnly) p.set("unseen", "1");
+  if (archiveState.filters.seenOnly) p.set("seen", "1");
+  if (archiveState.filters.favoriteOnly) p.set("fav", "1");
+  const qs = p.toString();
+  history.replaceState(null, "", qs ? "?" + qs : location.pathname);
 }
 
 async function refreshState() {
@@ -151,6 +182,7 @@ function renderArchiveList() {
         ${visibleEntries.map((entry) => renderTableRow(entry)).join("")}
       </tbody>
     </table>`;
+  writeQueryParams();
 }
 
 function renderTableRow(entry) {
@@ -238,7 +270,7 @@ function populateArchiveForm(entry) {
   archiveIsFavoriteInput.checked = Boolean(entry.isFavorite);
   archiveSaveButton.textContent = t("save_changes");
   openArchiveModal();
-  archiveFormMetaNode.textContent = t("edit_link_prefix", [entry.title || entry.url]);
+  archiveFormMetaNode.textContent = t("edit_link_title");
 }
 
 function syncEditingEntry(entry) {
@@ -269,6 +301,7 @@ function openCreateModal() {
 function openArchiveModal() {
   archiveModalNode.classList.add("is-open");
   archiveModalNode.setAttribute("aria-hidden", "false");
+  clearModalStatus();
 }
 
 function closeArchiveModal() {
@@ -299,7 +332,7 @@ async function submitArchiveForm() {
   };
 
   if (!payload.url) {
-    setStatus(t("enter_valid_url"), true);
+    setModalStatus(t("enter_valid_url"), true);
     archiveUrlInput.focus();
     return;
   }
@@ -319,20 +352,21 @@ async function submitArchiveForm() {
           ...payload,
         },
       });
-      setStatus(t("link_updated"));
     } else {
       await sendMessage({
         type: "save-link",
         payload,
       });
-      setStatus(t("link_added"));
     }
 
     await refreshState();
     resetArchiveForm();
     closeArchiveModal();
+    setStatus(
+      archiveState.editingId ? t("link_updated") : t("link_added"),
+    );
   } catch (error) {
-    setStatus(error.message || t("error_saving_link"), true);
+    setModalStatus(error.message || t("error_saving_link"), true);
   } finally {
     setButtonBusy(archiveSaveButton, false);
   }
@@ -567,7 +601,17 @@ function formatDateTime(value) {
 
 function setStatus(message, isError = false) {
   statusNode.textContent = message;
-  statusNode.style.color = isError ? "#a63f35" : "#2c6e49";
+  statusNode.style.color = isError ? "#e74c3c" : "#54d69a";
+}
+
+function setModalStatus(message, isError = false) {
+  modalStatusNode.textContent = message;
+  modalStatusNode.style.color = isError ? "#e74c3c" : "#54d69a";
+}
+
+function clearModalStatus() {
+  modalStatusNode.textContent = "";
+  modalStatusNode.style.color = "";
 }
 
 function setButtonBusy(button, busy, busyLabel = "") {

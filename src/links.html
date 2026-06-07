@@ -6,14 +6,17 @@
     <title>Archivio Link</title>
     <style>
       :root {
-        color-scheme: light;
-        --bg: #f4ecdf;
-        --panel: rgba(255, 250, 241, 0.94);
-        --ink: #1e1b16;
-        --muted: rgba(30, 27, 22, 0.68);
-        --accent: #c96b17;
-        --accent-dark: #9c5112;
-        --border: rgba(135, 108, 73, 0.2);
+        color-scheme: dark;
+        --bg: #0b1324;
+        --panel: #18243f;
+        --ink: #f4efe6;
+        --muted: rgba(244, 239, 230, 0.55);
+        --accent: #d9771f;
+        --accent-grad: linear-gradient(135deg, #e67e22 0%, #f0b35a 100%);
+        --border: rgba(255, 255, 255, 0.1);
+        --panel-border: rgba(255, 255, 255, 0.06);
+        --input-bg: rgba(255, 255, 255, 0.06);
+        --error: rgba(167, 47, 47, 0.96);
       }
 
       * {
@@ -25,9 +28,10 @@
         font: 14px/1.45 "Segoe UI", sans-serif;
         color: var(--ink);
         background:
-          radial-gradient(circle at top left, rgba(201, 107, 23, 0.16), transparent 26%),
-          radial-gradient(circle at top right, rgba(35, 74, 132, 0.12), transparent 22%),
-          linear-gradient(180deg, #faf4e7 0%, var(--bg) 100%);
+          radial-gradient(circle at top left, rgba(201, 107, 23, 0.12), transparent 30%),
+          radial-gradient(circle at top right, rgba(35, 74, 132, 0.1), transparent 25%),
+          linear-gradient(180deg, #18243f 0%, var(--bg) 100%);
+        min-height: 100vh;
       }
 
       main {
@@ -39,9 +43,9 @@
       .hero,
       .panel {
         background: var(--panel);
-        border: 1px solid var(--border);
-        border-radius: 24px;
-        box-shadow: 0 22px 44px rgba(30, 27, 22, 0.08);
+        border: 1px solid var(--panel-border);
+        border-radius: 16px;
+        box-shadow: 0 24px 60px rgba(14, 23, 44, 0.35);
       }
 
       .hero {
@@ -56,6 +60,7 @@
         margin: 0 0 6px;
         font-size: clamp(26px, 4vw, 38px);
         line-height: 1.05;
+        color: var(--ink);
       }
 
       .hero p {
@@ -64,7 +69,23 @@
         max-width: 720px;
       }
 
-      .hero-actions,
+      .hero-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        align-items: flex-start;
+      }
+
+      .hero-actions button {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 16px;
+        font-size: 13px;
+      }
+
+      .hero-actions .icon { width: 15px; height: 15px; }
+
       .filter-row,
       .badge-row {
         display: flex;
@@ -89,6 +110,7 @@
         display: block;
         font-weight: 700;
         margin-bottom: 8px;
+        color: var(--ink);
       }
 
       input,
@@ -101,28 +123,67 @@
         border: 1px solid var(--border);
         border-radius: 12px;
         padding: 10px 12px;
-        background: #fff;
+        background: var(--input-bg);
         color: var(--ink);
+        outline: none;
+      }
+
+      input[type="text"]:focus {
+        border-color: var(--accent);
       }
 
       button {
         border: 0;
         border-radius: 999px;
         padding: 9px 13px;
-        background: var(--accent);
-        color: #fff;
+        background: var(--accent-grad);
+        color: #24170b;
         font-weight: 700;
         cursor: pointer;
       }
 
       button.secondary {
-        background: transparent;
+        background: rgba(255, 255, 255, 0.08);
         color: var(--ink);
         border: 1px solid var(--border);
       }
 
+      button.secondary:hover {
+        background: rgba(255, 255, 255, 0.12);
+      }
+
       button.warn {
-        background: #a63f35;
+        background: var(--error);
+        color: #fff;
+      }
+
+      button:disabled,
+      button.secondary:disabled,
+      .icon-button:disabled {
+        opacity: 0.3;
+        cursor: not-allowed;
+        pointer-events: none;
+      }
+
+      .search-label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 16px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        margin-bottom: 10px;
+        color: var(--ink);
+      }
+
+      .search-label::before {
+        content: "";
+        display: inline-block;
+        width: 3px;
+        height: 16px;
+        border-radius: 2px;
+        background: var(--accent-grad);
+        flex-shrink: 0;
       }
 
       .search-row,
@@ -156,33 +217,42 @@
       }
 
       .filter-chip {
-        background: transparent;
+        background: rgba(255, 255, 255, 0.08);
         color: var(--ink);
         border: 1px solid var(--border);
       }
 
       .filter-chip.is-active {
-        background: rgba(201, 107, 23, 0.14);
-        color: var(--accent-dark);
-        border-color: rgba(201, 107, 23, 0.32);
+        background: rgba(242, 187, 105, 0.2);
+        color: #ffd68b;
+        border-color: rgba(242, 187, 105, 0.35);
       }
 
       .form-grid {
         grid-template-columns: 1fr;
       }
 
-      .inline-options {
-        display: flex;
-        gap: 12px;
-        flex-wrap: wrap;
+      .checkbox-group {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
       }
 
-      .inline-options label {
+      .checkbox-pill {
         display: flex;
         align-items: center;
         gap: 8px;
-        margin: 0;
         font-weight: 600;
+        margin: 0;
+        padding: 8px 10px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.04);
+        cursor: pointer;
+        transition: background 0.15s;
+      }
+
+      .checkbox-pill:hover {
+        background: rgba(255, 255, 255, 0.08);
       }
 
       .meta,
@@ -194,6 +264,12 @@
         color: var(--muted);
       }
 
+      .meta {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
       .status {
         min-height: 1.4em;
         margin-top: 10px;
@@ -203,7 +279,7 @@
         overflow: auto;
         border: 1px solid var(--border);
         border-radius: 14px;
-        background: rgba(255, 255, 255, 0.62);
+        background: rgba(255, 255, 255, 0.03);
       }
 
       .table {
@@ -215,16 +291,22 @@
       .table th,
       .table td {
         padding: 8px 10px;
-        border-bottom: 1px solid rgba(135, 108, 73, 0.14);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
         text-align: left;
         vertical-align: top;
       }
+
+      .table td:first-child { width: 100%; max-width: 0; }
+      .table td:nth-child(2),
+      .table td:nth-child(3) { width: 1%; white-space: nowrap; }
+
+      .table th:first-child { min-width: 200px; }
 
       .table th {
         position: sticky;
         top: 0;
         z-index: 1;
-        background: #f8f0e2;
+        background: rgba(255, 255, 255, 0.04);
         font-size: 12px;
         letter-spacing: 0.04em;
         text-transform: uppercase;
@@ -236,7 +318,8 @@
       .cell-page-url {
         overflow: hidden;
         text-overflow: ellipsis;
-        word-break: break-word;
+        white-space: nowrap;
+        max-width: 100%;
       }
 
       .cell-title {
@@ -246,11 +329,7 @@
 
       .cell-url,
       .cell-page-url {
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        line-clamp: 2;
-        -webkit-box-orient: vertical;
-        white-space: normal;
+        font-size: 12px;
       }
 
       .cell-url,
@@ -274,6 +353,13 @@
         height: 34px;
         padding: 0;
         border-radius: 10px;
+        background: rgba(255, 255, 255, 0.06);
+        color: var(--ink);
+        border: 1px solid transparent;
+      }
+
+      .icon-button:hover {
+        background: rgba(255, 255, 255, 0.12);
       }
 
       .icon,
@@ -289,12 +375,14 @@
 
       .icon-button.is-active-seen {
         background: rgba(84, 214, 154, 0.18);
-        color: #215c42;
+        color: #b9f6da;
+        border-color: rgba(84, 214, 154, 0.3);
       }
 
       .icon-button.is-active-favorite {
-        background: rgba(242, 187, 105, 0.22);
-        color: var(--accent-dark);
+        background: rgba(242, 187, 105, 0.18);
+        color: #ffd68b;
+        border-color: rgba(242, 187, 105, 0.3);
       }
 
       .badge {
@@ -302,19 +390,19 @@
         align-items: center;
         padding: 4px 10px;
         border-radius: 999px;
-        background: rgba(30, 27, 22, 0.08);
+        background: rgba(255, 255, 255, 0.08);
         font-size: 12px;
         font-weight: 700;
       }
 
       .badge.seen {
         background: rgba(84, 214, 154, 0.18);
-        color: #215c42;
+        color: #b9f6da;
       }
 
       .badge.favorite {
-        background: rgba(242, 187, 105, 0.22);
-        color: var(--accent-dark);
+        background: rgba(242, 187, 105, 0.2);
+        color: #ffd68b;
       }
 
       .empty {
@@ -330,8 +418,8 @@
         align-items: center;
         justify-content: center;
         padding: 20px;
-        background: rgba(30, 27, 22, 0.34);
-        backdrop-filter: blur(5px);
+        background: rgba(5, 8, 18, 0.7);
+        backdrop-filter: blur(6px);
         z-index: 20;
       }
 
@@ -358,11 +446,31 @@
         margin: 0;
       }
 
+      .modal-head > div:first-child {
+        min-width: 0;
+      }
+
       .modal-close {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
         width: 34px;
         height: 34px;
         padding: 0;
         border-radius: 10px;
+        background: rgba(255, 255, 255, 0.08);
+        color: var(--ink);
+        border: 1px solid var(--border);
+      }
+
+      .modal-close:hover {
+        background: rgba(255, 255, 255, 0.14);
+      }
+
+      .modal-status {
+        font-size: 13px;
+        min-height: 1.3em;
+        margin: 8px 0;
       }
 
       .sr-only {
@@ -397,9 +505,9 @@
           <p>Consulta tutti i link salvati, cercali rapidamente e gestiscili manualmente senza passare dalla pagina impostazioni.</p>
         </div>
         <div class="hero-actions">
-          <button id="openCreateModalButton" type="button">Nuovo link</button>
-          <button id="openOptionsButton" type="button" class="secondary">Impostazioni</button>
-          <button id="refreshButton" type="button" class="secondary">Aggiorna</button>
+          <button id="openCreateModalButton" type="button"><span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2Z"/></svg></span>Nuovo link</button>
+          <button id="openOptionsButton" type="button" class="secondary"><span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58ZM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2Z"/></svg></span>Impostazioni</button>
+          <button id="refreshButton" type="button" class="secondary"><span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M17.65 6.35A7.96 7.96 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35Z"/></svg></span>Aggiorna</button>
         </div>
       </section>
 
@@ -407,8 +515,8 @@
         <section class="panel">
           <div class="search-row">
             <div>
-              <label for="archiveSearch">Ricerca link</label>
-              <input id="archiveSearch" type="text" placeholder="Cerca per titolo, URL o pagina di origine">
+              <span class="search-label" id="archiveSearchLabel">Ricerca link</span>
+              <input id="archiveSearch" type="text" placeholder="Cerca per titolo, URL o pagina di origine" aria-labelledby="archiveSearchLabel">
             </div>
             <button id="archiveResetButton" type="button" class="secondary">Nuovo link</button>
           </div>
@@ -439,9 +547,8 @@
               <h2 id="archiveModalTitle">Modifica Link</h2>
               <p id="archiveFormMeta" class="meta">Aggiungi manualmente un link oppure selezionane uno dalla lista per modificarlo.</p>
             </div>
-            <button id="archiveModalCloseButton" type="button" class="secondary modal-close" aria-label="Chiudi finestra">
+            <button id="archiveModalCloseButton" type="button" class="modal-close" aria-label="Chiudi finestra">
               <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m18.3 5.71-1.41-1.41L12 9.17 7.11 4.29 5.7 5.7 10.59 10.6 5.7 15.49l1.41 1.41L12 12l4.89 4.9 1.41-1.41-4.89-4.89 4.89-4.89Z"/></svg></span>
-              <span class="sr-only">Chiudi</span>
             </button>
           </div>
           <div class="form-grid">
@@ -457,10 +564,11 @@
               <label for="archivePageUrl">Pagina di origine opzionale</label>
               <input id="archivePageUrl" type="text" placeholder="https://example.com/pagina">
             </div>
-            <div class="inline-options">
-              <label><input id="archiveIsSeen" type="checkbox"> Gia visto</label>
-              <label><input id="archiveIsFavorite" type="checkbox"> Favorito</label>
+            <div class="checkbox-group" style="margin-top: 4px">
+              <label class="checkbox-pill"><input id="archiveIsSeen" type="checkbox"> <span>Gia visto</span></label>
+              <label class="checkbox-pill"><input id="archiveIsFavorite" type="checkbox"> <span>Favorito</span></label>
             </div>
+            <div id="modalStatus" class="modal-status" aria-live="polite"></div>
             <div class="hero-actions">
               <button id="archiveSaveButton" type="button">Aggiungi link</button>
               <button id="archiveCancelButton" type="button" class="secondary">Annulla modifica</button>

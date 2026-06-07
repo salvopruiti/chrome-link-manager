@@ -6,102 +6,273 @@
     <title data-i18n="options_page_title">Link Manager Settings</title>
     <style>
       :root {
-        color-scheme: light;
-        --bg: #f2ecdf;
-        --panel: #fffaf1;
-        --ink: #1e1b16;
-        --accent: #c96b17;
-        --border: #d8ccb7;
+        color-scheme: dark;
+        --bg: #0b1324;
+        --panel: #18243f;
+        --ink: #f4efe6;
+        --muted: rgba(244, 239, 230, 0.55);
+        --muted-bg: rgba(255, 255, 255, 0.04);
+        --accent: #d9771f;
+        --accent-grad: linear-gradient(135deg, #e67e22 0%, #f0b35a 100%);
+        --border: rgba(255, 255, 255, 0.1);
+        --panel-border: rgba(255, 255, 255, 0.06);
+        --input-bg: rgba(255, 255, 255, 0.06);
+        --error: rgba(167, 47, 47, 0.96);
+        --gap: 12px;
       }
+
+      * { box-sizing: border-box; }
 
       body {
         margin: 0;
-        font-family: "Segoe UI", sans-serif;
-        background:
-          radial-gradient(circle at top left, rgba(201, 107, 23, 0.15), transparent 30%),
-          linear-gradient(180deg, #f7f0e2 0%, var(--bg) 100%);
+        font: 14px/1.45 "Segoe UI", sans-serif;
         color: var(--ink);
+        background:
+          radial-gradient(circle at top left, rgba(201, 107, 23, 0.12), transparent 30%),
+          radial-gradient(circle at top right, rgba(35, 74, 132, 0.1), transparent 25%),
+          linear-gradient(180deg, #18243f 0%, var(--bg) 100%);
+        min-height: 100vh;
       }
 
       main {
-        max-width: 900px;
+        max-width: 920px;
         margin: 0 auto;
-        padding: 40px 20px 80px;
+        padding: 24px 20px 100px;
       }
 
       .card {
         background: var(--panel);
-        border: 1px solid var(--border);
-        border-radius: 20px;
-        padding: 24px;
-        box-shadow: 0 18px 40px rgba(30, 27, 22, 0.08);
-        margin-bottom: 20px;
+        border: 1px solid var(--panel-border);
+        border-radius: 14px;
+        padding: 18px 20px;
+        box-shadow: 0 20px 50px rgba(14, 23, 44, 0.3);
+        margin-bottom: 14px;
       }
 
-      h1, h2 {
-        margin-top: 0;
+      .card > :last-child { margin-bottom: 0; }
+
+      h1 {
+        margin: 0 0 4px;
+        font-size: clamp(22px, 3.5vw, 32px);
+        line-height: 1.05;
       }
+
+      h2 {
+        margin: 0 0 10px;
+        font-size: 16px;
+        letter-spacing: 0.02em;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      h2::before {
+        content: "";
+        display: inline-block;
+        width: 3px;
+        height: 16px;
+        border-radius: 2px;
+        background: var(--accent-grad);
+        flex-shrink: 0;
+      }
+
+      p { color: var(--muted); }
 
       label {
         display: block;
-        font-weight: 600;
-        margin-bottom: 8px;
+        font-weight: 700;
+        margin-bottom: 6px;
+        font-size: 13px;
       }
 
-      input, textarea, button, select {
-        font: inherit;
-      }
+      input, textarea, button, select { font: inherit; }
 
       input[type="text"], textarea, select {
         width: 100%;
-        box-sizing: border-box;
         border: 1px solid var(--border);
-        border-radius: 12px;
-        padding: 12px 14px;
-        background: #fff;
+        border-radius: 10px;
+        padding: 9px 12px;
+        background: var(--input-bg);
+        color: var(--ink);
+        outline: none;
+        transition: border-color 0.15s;
+      }
+
+      input[type="text"]:focus, textarea:focus, select:focus {
+        border-color: var(--accent);
+      }
+
+      input:disabled, textarea:disabled, select:disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
       }
 
       textarea {
-        min-height: 220px;
+        min-height: 180px;
         resize: vertical;
       }
 
-      .row {
-        display: flex;
-        gap: 16px;
-        align-items: center;
-        flex-wrap: wrap;
+      select {
+        cursor: pointer;
       }
-
-      .row > * {
-        flex: 1;
-      }
+      select option { background: #18243f; color: #f4efe6; }
 
       button {
         border: 0;
         border-radius: 999px;
-        padding: 12px 18px;
-        background: var(--accent);
-        color: #fff;
+        padding: 8px 14px;
+        background: var(--accent-grad);
+        color: #24170b;
         font-weight: 700;
         cursor: pointer;
+        transition: opacity 0.15s;
       }
 
+      button:hover { opacity: 0.9; }
+
       .secondary {
-        background: transparent;
+        background: rgba(255, 255, 255, 0.08);
         color: var(--ink);
         border: 1px solid var(--border);
       }
 
+      .secondary:hover { background: rgba(255, 255, 255, 0.14); }
+
+      button:disabled,
+      .secondary:disabled {
+        opacity: 0.3;
+        cursor: not-allowed;
+        pointer-events: none;
+      }
+
+      .grid-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: var(--gap);
+      }
+
+      .checkbox-group {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px var(--gap);
+      }
+
+      .checkbox-group label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 600;
+        margin: 0;
+        padding: 8px 10px;
+        border-radius: 10px;
+        background: var(--muted-bg);
+        cursor: pointer;
+        transition: background 0.15s;
+      }
+
+      .checkbox-group label:hover { background: rgba(255, 255, 255, 0.08); }
+
+      input[type="checkbox"] {
+        accent-color: var(--accent);
+        width: 15px;
+        height: 15px;
+        flex-shrink: 0;
+      }
+
+      .field-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin: 10px 0;
+      }
+
+      .field-grid > div {
+        background: var(--muted-bg);
+        border-radius: 10px;
+        padding: 10px 12px;
+      }
+
+      .field-grid label {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-weight: 700;
+        color: var(--muted);
+        margin-bottom: 3px;
+      }
+
+      .field-grid .value {
+        font-size: 14px;
+        color: var(--ink);
+        min-height: 1.3em;
+      }
+
+      .field-grid .value.muted { color: var(--muted); }
+
+      .btn-row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+
+      .btn-row > button { flex: 0 1 auto; }
+
       .status {
-        margin-top: 12px;
+        margin: 0;
         min-height: 1.2em;
+        font-size: 13px;
       }
 
       code {
-        background: rgba(30, 27, 22, 0.08);
-        padding: 2px 6px;
-        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.08);
+        padding: 2px 7px;
+        border-radius: 7px;
+      }
+
+      #debugSyncOutput {
+        margin-top: 10px;
+        padding: 10px;
+        border-radius: 10px;
+        background: var(--muted-bg);
+        border: 1px solid var(--border);
+        font-size: 12px;
+        white-space: pre-wrap;
+      }
+
+      .save-bar {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 100;
+        background: rgba(11, 19, 36, 0.92);
+        backdrop-filter: blur(14px);
+        border-top: 1px solid var(--border);
+        padding: 10px 20px;
+      }
+
+      .save-bar-inner {
+        max-width: 920px;
+        margin: 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 16px;
+      }
+
+      .save-bar .status { flex: 1; min-width: 0; }
+
+      .save-bar button {
+        flex-shrink: 0;
+        padding: 10px 22px;
+        font-size: 15px;
+      }
+
+      @media (max-width: 640px) {
+        .checkbox-group { grid-template-columns: 1fr; }
+        .field-grid { grid-template-columns: 1fr; }
+        .grid-2 { grid-template-columns: 1fr; }
       }
     </style>
   </head>
@@ -110,41 +281,36 @@
       <section class="card">
         <h1 data-i18n="link_manager_name">Link Manager</h1>
         <p><span data-i18n="options_intro_prefix">Salva un link con</span> <strong data-i18n="capture_mode_shift_click">Shift+Click</strong><span data-i18n="options_intro_suffix">, poi aprilo dalla mini barra presente nelle pagine.</span></p>
-        <div class="row">
-          <button id="openArchivePageButton" type="button" data-i18n="open_archive_links">Apri archivio link</button>
-        </div>
+        <button id="openArchivePageButton" type="button" data-i18n="open_archive_links">Apri archivio link</button>
       </section>
 
       <section class="card">
         <h2 data-i18n="import_from_bookmarks">Importa Da Preferiti</h2>
-        <div class="row">
+        <div class="grid-2">
           <div>
             <label for="importFolderId" data-i18n="folder_to_import">Cartella da importare</label>
             <select id="importFolderId"></select>
           </div>
-          <div>
-            <label>&nbsp;</label>
+          <div style="display:flex;flex-direction:column;justify-content:flex-end;">
             <button id="importFolderButton" type="button" data-i18n="import_links_from_folder">Importa link da cartella</button>
           </div>
         </div>
-        <div class="row">
+        <div class="checkbox-group" style="margin-top:10px">
           <label><input id="importAsSeen" type="checkbox"> <span data-i18n="import_as_seen">Importa come gia visti</span></label>
           <label><input id="importAsFavorite" type="checkbox"> <span data-i18n="import_as_favorite">Importa come favoriti</span></label>
         </div>
-        <p data-i18n="import_folder_description">Importa nel database locale tutti i link della cartella selezionata, comprese le sottocartelle, assegnando opzionalmente gli stati interni selezionati.</p>
+        <p data-i18n="import_folder_description" style="margin-bottom:0">Importa nel database locale tutti i link della cartella selezionata, comprese le sottocartelle, assegnando opzionalmente gli stati interni selezionati.</p>
       </section>
 
       <section class="card">
         <h2 data-i18n="bar_and_navigation">Barra e Navigazione</h2>
-        <div class="row">
+        <div class="checkbox-group">
           <label><input id="skipSeenInNavigation" type="checkbox"> <span data-i18n="ignore_seen_nav">Ignora i link gia visti in avanti, indietro e casuale</span></label>
           <label><input id="skipFavoriteInNavigation" type="checkbox"> <span data-i18n="ignore_fav_nav">Ignora i link favoriti in avanti, indietro e casuale</span></label>
-        </div>
-        <div class="row">
           <label><input id="closeDuplicateTabsOnLoad" type="checkbox"> <span data-i18n="close_duplicate_tabs_on_load">Chiudi automaticamente le tab duplicate alla navigazione</span></label>
           <label><input id="closeSeenTabsOnLoad" type="checkbox"> <span data-i18n="close_seen_tabs_on_load">Chiudi la scheda se la pagina è già presente tra i link visti</span></label>
         </div>
-        <div>
+        <div style="margin-top:10px">
           <label for="barVisibilityMode" data-i18n="bar_visibility">Visibilita barra</label>
           <select id="barVisibilityMode">
             <option value="always" data-i18n="bar_visibility_always">Mostra sempre</option>
@@ -152,11 +318,11 @@
             <option value="blacklist" data-i18n="bar_visibility_blacklist">Non mostrare in questi siti</option>
           </select>
         </div>
-        <div>
+        <div style="margin-top:8px">
           <label for="barVisibilitySites" data-i18n="bar_visibility_sites">Siti per whitelist / blacklist</label>
           <textarea id="barVisibilitySites" spellcheck="false" placeholder="example.com&#10;*.example.com" data-i18n-placeholder="bar_visibility_sites_placeholder"></textarea>
         </div>
-        <p><span data-i18n="bar_visibility_help_prefix">Una riga per sito. Sono supportati host esatti come</span> <code>example.com</code> <span data-i18n="bar_visibility_help_suffix">e wildcard come</span> <code>*.example.com</code>.</p>
+        <p style="margin-bottom:0"><span data-i18n="bar_visibility_help_prefix">Una riga per sito. Sono supportati host esatti come</span> <code>example.com</code> <span data-i18n="bar_visibility_help_suffix">e wildcard come</span> <code>*.example.com</code>.</p>
       </section>
 
       <section class="card">
@@ -170,54 +336,55 @@
         <h2 data-i18n="account_and_sync">Account e Sync</h2>
         <p data-i18n="account_sync_description">Accedi con magic link per sincronizzare il database dei link su Supabase tra piu browser e dispositivi.</p>
         <p><span data-i18n="redirect_url_label">Redirect URL da configurare in Supabase Auth:</span> <code id="authRedirectUrl"></code></p>
-        <div class="row">
+        <div class="grid-2">
           <div>
             <label for="authEmail" data-i18n="email_label">Email</label>
             <input id="authEmail" type="text" placeholder="nome@dominio.it" data-i18n-placeholder="email_placeholder">
           </div>
-          <div>
-            <label>&nbsp;</label>
+          <div style="display:flex;flex-direction:column;justify-content:flex-end;">
             <button id="sendMagicLinkButton" type="button" data-i18n="send_magic_link">Invia magic link</button>
           </div>
         </div>
-        <div class="row">
+        <div class="field-grid">
           <div>
             <label data-i18n="account_status">Stato account</label>
-            <div id="authStatus" data-i18n="not_authenticated">Non autenticato</div>
+            <div class="value" id="authStatus" data-i18n="not_authenticated">Non autenticato</div>
           </div>
           <div>
             <label data-i18n="last_sync">Ultima sync</label>
-            <div id="lastSyncAt" data-i18n="never">Mai</div>
+            <div class="value muted" id="lastSyncAt" data-i18n="never">Mai</div>
           </div>
-        </div>
-        <div class="row">
           <div>
             <label data-i18n="sync_queue_status">Stato coda sync</label>
-            <div id="syncQueueStatus" data-i18n="no_changes_queued">Nessuna modifica in coda</div>
+            <div class="value" id="syncQueueStatus" data-i18n="no_changes_queued">Nessuna modifica in coda</div>
           </div>
           <div>
             <label data-i18n="next_flush">Prossimo flush</label>
-            <div id="nextFlushAt" data-i18n="not_scheduled">Non pianificato</div>
+            <div class="value muted" id="nextFlushAt" data-i18n="not_scheduled">Non pianificato</div>
           </div>
         </div>
-        <div class="row">
+        <div class="btn-row">
           <button id="syncNowButton" type="button" data-i18n="sync_now">Sincronizza ora</button>
           <button id="debugSyncButton" type="button" class="secondary" data-i18n="compare_local_remote">Confronta locale e remoto</button>
           <button id="fixSyncButton" type="button" class="secondary" data-i18n="fix_local_remote">Confronta e correggi</button>
           <button id="signOutButton" type="button" class="secondary" data-i18n="sign_out">Esci</button>
         </div>
-        <pre id="debugSyncOutput" class="status" style="white-space: pre-wrap; min-height: 0;"></pre>
+        <pre id="debugSyncOutput"></pre>
       </section>
 
       <section class="card">
-        <div class="row">
+        <div class="checkbox-group">
           <label><input id="captureWithShift" type="checkbox"> <span data-i18n="enable_shift_capture">Abilita salvataggio con Shift+Click</span></label>
           <label><input id="openLinksInNewTab" type="checkbox"> <span data-i18n="open_links_new_tab">Apri i link in una nuova scheda</span></label>
-          <button id="saveButton" type="button" data-i18n="save_settings">Salva impostazioni</button>
         </div>
-        <div id="status" class="status" aria-live="polite"></div>
       </section>
     </main>
+    <footer class="save-bar" role="contentinfo">
+      <div class="save-bar-inner">
+        <div id="status" class="status" aria-live="polite"></div>
+        <button id="saveButton" type="button" data-i18n="save_settings">Salva impostazioni</button>
+      </div>
+    </footer>
     <script type="module" src="./options.js"></script>
   </body>
-  </html>
+</html>
