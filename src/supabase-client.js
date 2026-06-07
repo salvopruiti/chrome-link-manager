@@ -163,7 +163,7 @@ export async function upsertLinksToSupabase(entries, session) {
 
 export async function patchRemoteLinkDeleted(entry, session) {
   const response = await fetchSupabase(
-    `/rest/v1/links?normalized_url=eq.${encodeURIComponent(entry.normalizedUrl)}`,
+    `/rest/v1/links?normalized_url=eq.${encodeURIComponent(entry.normalizedUrl)}&user_id=eq.${session.user.id}`,
     {
       method: "PATCH",
       headers: {

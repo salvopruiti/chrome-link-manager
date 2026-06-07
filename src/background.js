@@ -33,6 +33,8 @@ const REDIRECT_TRACK_WINDOW_MS = 30000;
 const CONTEXT_MENU_ID = "save-link-from-context-menu";
 let pendingSyncFlushPromise = null;
 let isPendingSyncFlushRunning = false;
+let pendingSyncMutex = Promise.resolve();
+let settingsStorageInitialized = false;
 const pendingRedirectEntryByTabId = new Map();
 
 const DEFAULT_SETTINGS = {
@@ -56,6 +58,8 @@ const DEFAULT_SYNC_SETTINGS = {
   openLinksInNewTab: DEFAULT_SETTINGS.openLinksInNewTab,
   skipSeenInNavigation: DEFAULT_SETTINGS.skipSeenInNavigation,
   skipFavoriteInNavigation: DEFAULT_SETTINGS.skipFavoriteInNavigation,
+  closeDuplicateTabsOnLoad: DEFAULT_SETTINGS.closeDuplicateTabsOnLoad,
+  closeSeenTabsOnLoad: DEFAULT_SETTINGS.closeSeenTabsOnLoad,
   barVisibilityMode: DEFAULT_SETTINGS.barVisibilityMode,
   barVisibilitySites: DEFAULT_SETTINGS.barVisibilitySites,
   bookmarkFolderTitle: DEFAULT_SETTINGS.bookmarkFolderTitle,
@@ -448,19 +452,31 @@ async function updateSettings(nextSettings) {
   return getSettings();
 }
 
-async function initializeSettingsStorage() {
-  const data = await SETTINGS_STORAGE.get(STORAGE_KEYS.settings);
-  const rawSyncSettings = pickSyncSettings(data[STORAGE_KEYS.settings] || {});
-  const storedSyncSettings = {
-    ...DEFAULT_SYNC_SETTINGS,
-    ...pickSyncSettings(sanitizeSettings(rawSyncSettings)),
-  };
+let initializingSettings = null;
 
-  if (JSON.stringify(rawSyncSettings) !== JSON.stringify(storedSyncSettings)) {
-    await SETTINGS_STORAGE.set({ [STORAGE_KEYS.settings]: storedSyncSettings });
+async function initializeSettingsStorage() {
+  if (settingsStorageInitialized) {
+    return;
   }
 
-  return storedSyncSettings;
+  initializingSettings = (async () => {
+    const data = await SETTINGS_STORAGE.get(STORAGE_KEYS.settings);
+    const rawSyncSettings = pickSyncSettings(data[STORAGE_KEYS.settings] || {});
+    const storedSyncSettings = {
+      ...DEFAULT_SYNC_SETTINGS,
+      ...pickSyncSettings(sanitizeSettings(rawSyncSettings)),
+    };
+
+    if (JSON.stringify(rawSyncSettings) !== JSON.stringify(storedSyncSettings)) {
+      await SETTINGS_STORAGE.set({ [STORAGE_KEYS.settings]: storedSyncSettings });
+    }
+
+    settingsStorageInitialized = true;
+    initializingSettings = null;
+    return storedSyncSettings;
+  })();
+
+  return initializingSettings;
 }
 
 async function getStoredSyncSettings() {
@@ -549,14 +565,17 @@ async function queueEntriesForUpsert(entries) {
     return;
   }
 
-  const pendingSync = await getPendingSync();
+  pendingSyncMutex = pendingSyncMutex.then(async () => {
+    const pendingSync = await getPendingSync();
 
-  for (const entry of normalizeEntries(entries)) {
-    pendingSync.upserts[entry.normalizedUrl] = serializePendingUpsert(entry);
-    delete pendingSync.deletes[entry.normalizedUrl];
-  }
+    for (const entry of normalizeEntries(entries)) {
+      pendingSync.upserts[entry.normalizedUrl] = serializePendingUpsert(entry);
+      delete pendingSync.deletes[entry.normalizedUrl];
+    }
 
-  await setPendingSync(pendingSync);
+    await setPendingSync(pendingSync);
+  });
+  await pendingSyncMutex;
 }
 
 async function queueEntryDelete(entry) {
@@ -564,13 +583,16 @@ async function queueEntryDelete(entry) {
     return;
   }
 
-  const pendingSync = await getPendingSync();
-  delete pendingSync.upserts[entry.normalizedUrl];
-  pendingSync.deletes[entry.normalizedUrl] = {
-    normalizedUrl: entry.normalizedUrl,
-    deletedAt: new Date().toISOString(),
-  };
-  await setPendingSync(pendingSync);
+  pendingSyncMutex = pendingSyncMutex.then(async () => {
+    const pendingSync = await getPendingSync();
+    delete pendingSync.upserts[entry.normalizedUrl];
+    pendingSync.deletes[entry.normalizedUrl] = {
+      normalizedUrl: entry.normalizedUrl,
+      deletedAt: new Date().toISOString(),
+    };
+    await setPendingSync(pendingSync);
+  });
+  await pendingSyncMutex;
 }
 
 async function sendMagicLink(email) {
@@ -592,7 +614,11 @@ async function completeAuthSession(payload) {
   };
 
   await setAuthSession(session);
-  await syncSupabase();
+  try {
+    await syncSupabase();
+  } catch {
+    // Sync failure during auth should not block login.
+  }
   return getAuthState();
 }
 
@@ -904,11 +930,11 @@ async function flushPendingSync(session) {
   if (pendingUpserts.length) {
     try {
       await upsertLinksToSupabase(pendingUpserts, session);
+      for (const pendingUpsert of pendingUpserts) {
+        delete pendingSync.upserts[pendingUpsert.normalizedUrl];
+      }
     } catch (error) {
       console.error("Error flushing pending upsert batch:", error);
-    }
-    for (const pendingUpsert of pendingUpserts) {
-      delete pendingSync.upserts[pendingUpsert.normalizedUrl];
     }
   }
 
@@ -977,7 +1003,6 @@ function normalizeEntries(entries) {
         ? entry.updatedAt || entry.createdAt || new Date().toISOString()
         : null),
   }));
-  //.sort(compareEntriesByCreatedAtDesc);
 }
 
 function serializePendingUpsert(entry) {
@@ -1989,17 +2014,20 @@ function sortSearchParams(searchParams) {
 
 async function broadcastState() {
   const state = await getState();
-  const tabs = await chrome.tabs.query({});
+  const tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
 
-  // await Promise.all(
-  //   tabs
-  //     .filter((tab) => typeof tab.id === "number")
-  //     .map((tab) =>
-  //       chrome.tabs
-  //         .sendMessage(tab.id, { type: "state-updated", payload: state })
-  //         .catch(() => undefined),
-  //     ),
-  // );
+  for (const tab of tabs) {
+    if (typeof tab.id === "number") {
+      try {
+        await chrome.tabs.sendMessage(tab.id, {
+          type: "state-updated",
+          payload: state,
+        });
+      } catch {
+        // Content script not available on this page.
+      }
+    }
+  }
 }
 
 async function sendStateToTab(tabId) {
