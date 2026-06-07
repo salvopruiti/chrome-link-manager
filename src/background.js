@@ -893,12 +893,20 @@ async function flushPendingSync(session) {
   }
 
   for (const pendingDelete of pendingDeletes) {
-    await patchRemoteLinkDeleted(pendingDelete, session);
+    try {
+      await patchRemoteLinkDeleted(pendingDelete, session);
+    } catch (error) {
+      console.error("Error flushing pending delete:", error, pendingDelete);
+    }
     delete pendingSync.deletes[pendingDelete.normalizedUrl];
   }
 
   if (pendingUpserts.length) {
-    await upsertLinksToSupabase(pendingUpserts, session);
+    try {
+      await upsertLinksToSupabase(pendingUpserts, session);
+    } catch (error) {
+      console.error("Error flushing pending upsert batch:", error);
+    }
     for (const pendingUpsert of pendingUpserts) {
       delete pendingSync.upserts[pendingUpsert.normalizedUrl];
     }
@@ -1255,6 +1263,10 @@ async function updateLink(payload) {
       updatedAt: now,
     },
   ])[0];
+
+  if (currentEntry.normalizedUrl !== nextEntry.normalizedUrl) {
+    nextEntry.id = crypto.randomUUID();
+  }
 
   const nextEntries = entries.map((entry) =>
     entry.id === id ? nextEntry : entry,
