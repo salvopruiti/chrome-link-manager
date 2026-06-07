@@ -1439,6 +1439,7 @@ function normalizeUrlForUi(input, siteRules = {}) {
 
 function resolveIgnoredParamsForUi(hostname, siteRules) {
   const normalizedHostname = hostname.toLowerCase();
+  const globalRules = siteRules["*"] || [];
   const directRules = siteRules[normalizedHostname] || [];
   const wildcardRules = Object.entries(siteRules)
     .filter(([ruleHostname]) => ruleHostname.startsWith("*."))
@@ -1449,7 +1450,7 @@ function resolveIgnoredParamsForUi(hostname, siteRules) {
     )
     .flatMap(([, params]) => params);
 
-  return [...new Set([...directRules, ...wildcardRules])];
+  return [...new Set([...globalRules, ...directRules, ...wildcardRules])];
 }
 
 function sortSearchParamsForUi(searchParams) {
