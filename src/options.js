@@ -48,6 +48,11 @@ fixSyncButton.addEventListener("click", fixSyncState);
 signOutButton.addEventListener("click", signOut);
 barVisibilityModeInput.addEventListener("change", syncBarVisibilityState);
 openArchivePageButton.addEventListener("click", openArchivePage);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") {
+    void refreshState();
+  }
+});
 
 async function init() {
   try {
@@ -286,7 +291,7 @@ function renderSyncState(sync = {}) {
 
 function formatDateTime(value) {
   try {
-    return new Date(value).toLocaleString("it-IT");
+    return new Date(value).toLocaleString(undefined);
   } catch {
     return value;
   }

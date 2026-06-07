@@ -1,3 +1,7 @@
+function t(key, substitutions) {
+  return chrome.i18n.getMessage(key, substitutions) || key;
+}
+
 const archiveSearchInput = document.getElementById("archiveSearch");
 const archiveUrlInput = document.getElementById("archiveUrl");
 const archiveTitleInput = document.getElementById("archiveTitle");
@@ -63,6 +67,11 @@ prevPageButton.addEventListener("click", () => changePage(-1));
 nextPageButton.addEventListener("click", () => changePage(1));
 firstPageButton.addEventListener("click", () => changePage(-Infinity));
 lastPageButton.addEventListener("click", () => changePage(Infinity));
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") {
+    void refreshState();
+  }
+});
 
 void init();
 
@@ -72,7 +81,7 @@ async function init() {
     resetArchiveForm();
     closeArchiveModal();
   } catch (error) {
-    setStatus(error.message || "Impossibile caricare l'archivio", true);
+    setStatus(error.message || t("unable_load_links"), true);
   }
 }
 
@@ -123,8 +132,8 @@ function renderArchiveList() {
   if (!visibleEntries.length) {
     archiveListNode.innerHTML = `<div class="empty">${escapeHtml(
       archiveState.searchQuery.trim()
-        ? "Nessun link corrisponde alla ricerca"
-        : "Nessun link salvato al momento",
+        ? t("no_search_results")
+        : t("no_links_saved_yet"),
     )}</div>`;
     return;
   }
@@ -133,9 +142,9 @@ function renderArchiveList() {
     <table class="table">
       <thead>
         <tr>
-          <th>Titolo</th>       
-          <th>Data</th>   
-          <th>Azioni</th>
+          <th>${t("title_label")}</th>       
+          <th>${t("date_label")}</th>   
+          <th>${t("actions_label")}</th>
         </tr>
       </thead>
       <tbody>
@@ -148,27 +157,26 @@ function renderTableRow(entry) {
   const badges = [];
 
   if (entry.isSeen) {
-    badges.push('<span class="badge seen">Visto</span>');
+    badges.push(`<span class="badge seen">${t("seen_badge")}</span>`);
   }
 
   if (entry.isFavorite) {
-    badges.push('<span class="badge favorite">Favorito</span>');
+    badges.push(`<span class="badge favorite">${t("favorite_badge")}</span>`);
   }
-
-  //${badges.length ? `<div class="badge-row">${badges.join("")}</div>` : '<span class="cell-page-url">-</span>'}
 
   return `
     <tr data-id="${escapeHtml(entry.id)}">
       <td><div class="cell-title" title="${escapeHtml(entry.title)}">${escapeHtml(entry.title)}</div>
-      <div class="cell-url" title="${escapeHtml(entry.url)}">${escapeHtml(entry.url)}</div></td>
+      <div class="cell-url" title="${escapeHtml(entry.url)}">${escapeHtml(entry.url)}</div>
+      ${badges.length ? `<div class="badge-row">${badges.join("")}</div>` : ""}</td>
       <td><div class="cell-date">${formatDateTime(entry.createdAt)}</div></td>
       <td>
         <div class="row-actions">
-          <button type="button" class="secondary icon-button" data-action="open" data-id="${escapeHtml(entry.id)}" title="Apri link" aria-label="Apri link">${iconMarkup("chevron-right")}</button>
-          <button type="button" class="secondary icon-button" data-action="edit" data-id="${escapeHtml(entry.id)}" title="Modifica link" aria-label="Modifica link">${iconMarkup("edit")}</button>
-          <button type="button" class="secondary icon-button${getToggleStateClass("seen", entry.isSeen)}" data-action="toggle-seen" data-id="${escapeHtml(entry.id)}" title="${entry.isSeen ? "Togli visto" : "Segna visto"}" aria-label="${entry.isSeen ? "Togli visto" : "Segna visto"}">${iconMarkup(entry.isSeen ? "check-badge" : "check")}</button>
-          <button type="button" class="secondary icon-button${getToggleStateClass("favorite", entry.isFavorite)}" data-action="toggle-favorite" data-id="${escapeHtml(entry.id)}" title="${entry.isFavorite ? "Togli favorito" : "Segna favorito"}" aria-label="${entry.isFavorite ? "Togli favorito" : "Segna favorito"}">${iconMarkup(entry.isFavorite ? "star-filled" : "star")}</button>
-          <button type="button" class="warn icon-button" data-action="delete" data-id="${escapeHtml(entry.id)}" title="Rimuovi link" aria-label="Rimuovi link">${iconMarkup("trash")}</button>
+          <button type="button" class="secondary icon-button" data-action="open" data-id="${escapeHtml(entry.id)}" title="${t("open_in_new_tab")}" aria-label="${t("open_in_new_tab")}">${iconMarkup("chevron-right")}</button>
+          <button type="button" class="secondary icon-button" data-action="edit" data-id="${escapeHtml(entry.id)}" title="${t("edit_link_title")}" aria-label="${t("edit_link_title")}">${iconMarkup("edit")}</button>
+          <button type="button" class="secondary icon-button${getToggleStateClass("seen", entry.isSeen)}" data-action="toggle-seen" data-id="${escapeHtml(entry.id)}" title="${entry.isSeen ? t("unmark_seen") : t("mark_seen")}" aria-label="${entry.isSeen ? t("unmark_seen") : t("mark_seen")}">${iconMarkup(entry.isSeen ? "check-badge" : "check")}</button>
+          <button type="button" class="secondary icon-button${getToggleStateClass("favorite", entry.isFavorite)}" data-action="toggle-favorite" data-id="${escapeHtml(entry.id)}" title="${entry.isFavorite ? t("unmark_favorite") : t("mark_favorite")}" aria-label="${entry.isFavorite ? t("unmark_favorite") : t("mark_favorite")}">${iconMarkup(entry.isFavorite ? "star-filled" : "star")}</button>
+          <button type="button" class="warn icon-button" data-action="delete" data-id="${escapeHtml(entry.id)}" title="${t("remove")}" aria-label="${t("remove")}">${iconMarkup("trash")}</button>
         </div>
       </td>
     </tr>`;
@@ -228,9 +236,9 @@ function populateArchiveForm(entry) {
   archivePageUrlInput.value = entry.pageUrl || "";
   archiveIsSeenInput.checked = Boolean(entry.isSeen);
   archiveIsFavoriteInput.checked = Boolean(entry.isFavorite);
-  archiveSaveButton.textContent = "Salva modifiche";
+  archiveSaveButton.textContent = t("save_changes");
   openArchiveModal();
-  archiveFormMetaNode.textContent = `Modifica il link selezionato: ${entry.title || entry.url}`;
+  archiveFormMetaNode.textContent = t("edit_link_prefix", [entry.title || entry.url]);
 }
 
 function syncEditingEntry(entry) {
@@ -248,9 +256,8 @@ function resetArchiveForm() {
   archivePageUrlInput.value = "";
   archiveIsSeenInput.checked = false;
   archiveIsFavoriteInput.checked = false;
-  archiveSaveButton.textContent = "Aggiungi link";
-  archiveFormMetaNode.textContent =
-    "Aggiungi manualmente un link oppure selezionane uno dalla lista per modificarlo.";
+  archiveSaveButton.textContent = t("add_link");
+  archiveFormMetaNode.textContent = t("add_manually_hint");
 }
 
 function openCreateModal() {
@@ -292,7 +299,7 @@ async function submitArchiveForm() {
   };
 
   if (!payload.url) {
-    setStatus("Inserisci un URL valido", true);
+    setStatus(t("enter_valid_url"), true);
     archiveUrlInput.focus();
     return;
   }
@@ -301,7 +308,7 @@ async function submitArchiveForm() {
     setButtonBusy(
       archiveSaveButton,
       true,
-      archiveState.editingId ? "Salvataggio..." : "Aggiunta...",
+      archiveState.editingId ? t("saving_short") : t("adding_short"),
     );
 
     if (archiveState.editingId) {
@@ -312,20 +319,20 @@ async function submitArchiveForm() {
           ...payload,
         },
       });
-      setStatus("Link aggiornato");
+      setStatus(t("link_updated"));
     } else {
       await sendMessage({
         type: "save-link",
         payload,
       });
-      setStatus("Link aggiunto");
+      setStatus(t("link_added"));
     }
 
     await refreshState();
     resetArchiveForm();
     closeArchiveModal();
   } catch (error) {
-    setStatus(error.message || "Errore salvataggio link", true);
+    setStatus(error.message || t("error_saving_link"), true);
   } finally {
     setButtonBusy(archiveSaveButton, false);
   }
@@ -356,9 +363,9 @@ async function handleArchiveListClick(event) {
         type: "open-link",
         payload: { id, active: true, openInNewTab: true },
       });
-      setStatus("Link aperto in una nuova scheda");
+      setStatus(t("link_opened_new_tab"));
     } catch (error) {
-      setStatus(error.message || "Errore apertura link", true);
+      setStatus(error.message || t("error_opening_link"), true);
     }
     return;
   }
@@ -385,12 +392,12 @@ async function handleArchiveListClick(event) {
       renderArchiveList();
       setStatus(
         result.enabled
-          ? "Link segnato come visto"
-          : "Link segnato come non visto",
+          ? t("link_marked_seen")
+          : t("link_marked_unseen"),
       );
     } catch (error) {
       await refreshState();
-      setStatus(error.message || "Errore aggiornamento stato", true);
+      setStatus(error.message || t("error_updating_status"), true);
     }
     return;
   }
@@ -415,12 +422,12 @@ async function handleArchiveListClick(event) {
       renderArchiveList();
       setStatus(
         result.enabled
-          ? "Link aggiunto ai favoriti"
-          : "Link rimosso dai favoriti",
+          ? t("link_added_favorites")
+          : t("link_removed_favorites"),
       );
     } catch (error) {
       await refreshState();
-      setStatus(error.message || "Errore aggiornamento stato", true);
+      setStatus(error.message || t("error_updating_status"), true);
     }
     return;
   }
@@ -437,10 +444,10 @@ async function handleArchiveListClick(event) {
       resetArchiveForm();
       closeArchiveModal();
     }
-    setStatus("Link eliminato");
+    setStatus(t("link_deleted"));
   } catch (error) {
     await refreshState();
-    setStatus(error.message || "Errore eliminazione link", true);
+    setStatus(error.message || t("error_deleting_link"), true);
   }
 }
 
@@ -470,7 +477,7 @@ function createOptimisticEntry(entry, flagKey, timestampKey) {
 
 function renderPagination(totalItems, pageStart, pageEnd, totalPages) {
   if (!totalItems) {
-    paginationInfoNode.textContent = "0 risultati";
+    paginationInfoNode.textContent = t("no_results");
     prevPageButton.disabled = true;
     firstPageButton.disabled = true;
     lastPageButton.disabled = true;
@@ -528,19 +535,22 @@ function iconMarkup(name) {
 
 function renderSyncHint(sync = {}) {
   if (sync.isSyncing) {
-    syncHintNode.textContent = "Sync in corso";
+    syncHintNode.textContent = t("sync_in_progress");
     return;
   }
 
   if (sync.pendingCount) {
-    const nextFlush = sync.nextFlushAt
-      ? ` • flush ${formatDateTime(sync.nextFlushAt)}`
+    const flushSuffix = sync.nextFlushAt
+      ? t("flush_at", [formatDateTime(sync.nextFlushAt)])
       : "";
-    syncHintNode.textContent = `${sync.pendingCount} modifiche in coda${nextFlush}`;
+    syncHintNode.textContent = t("pending_queue_with_flush", [
+      String(sync.pendingCount),
+      flushSuffix,
+    ]);
     return;
   }
 
-  syncHintNode.textContent = "Archivio locale aggiornato";
+  syncHintNode.textContent = t("archive_up_to_date");
 }
 
 async function openOptionsPage() {
@@ -549,7 +559,7 @@ async function openOptionsPage() {
 
 function formatDateTime(value) {
   try {
-    return new Date(value).toLocaleString("it-IT");
+    return new Date(value).toLocaleString(undefined);
   } catch {
     return String(value);
   }
