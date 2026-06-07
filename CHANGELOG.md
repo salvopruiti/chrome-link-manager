@@ -1,3 +1,21 @@
+# [1.3.0](https://github.com/salvopruiti/chrome-link-manager/compare/v1.2.1...v1.3.0) (2026-06-07)
+
+
+### Bug Fixes
+
+* align URL normalization and add global '*' rule to content script ([7ebee4b](https://github.com/salvopruiti/chrome-link-manager/commit/7ebee4b4a518f97a94503aeedecf2d7ff7218271))
+* prevent data loss and race conditions in sync queue ([a5b4f53](https://github.com/salvopruiti/chrome-link-manager/commit/a5b4f535a6dea0ac05da85727980341d14fab45a))
+
+
+### Features
+
+* add i18n support to auth callback page ([f783b4c](https://github.com/salvopruiti/chrome-link-manager/commit/f783b4c67bd111fda13d59fed8517bfbe5c655d1))
+
+
+### Performance Improvements
+
+* cache settings initialization and limit state broadcast to active tab ([977cd79](https://github.com/salvopruiti/chrome-link-manager/commit/977cd79229bb0722d1bf0384d3ac1299f1d24759))
+
 ## [1.2.1](https://github.com/salvopruiti/chrome-link-manager/compare/v1.2.0...v1.2.1) (2026-06-07)
 
 
