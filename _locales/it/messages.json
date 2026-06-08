@@ -80,6 +80,9 @@
   "remove": {
     "message": "Rimuovi"
   },
+  "removing_short": {
+    "message": "Rimozione..."
+  },
   "add": {
     "message": "Aggiungi"
   },

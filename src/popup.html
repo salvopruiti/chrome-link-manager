@@ -16,7 +16,12 @@
         --chip: rgba(255, 255, 255, 0.1);
         --chip-strong: rgba(255, 255, 255, 0.16);
         --line: rgba(255, 255, 255, 0.08);
+        --input-bg: rgba(255, 255, 255, 0.06);
+        --border: rgba(255, 255, 255, 0.1);
+        --accent-grad: linear-gradient(135deg, #e67e22 0%, #f0b35a 100%);
       }
+
+      * { box-sizing: border-box; }
 
       body {
         margin: 0;
@@ -28,34 +33,21 @@
         background: linear-gradient(180deg, var(--bg-top) 0%, var(--bg-bottom) 100%);
       }
 
-      html {
-        width: 380px;
-        height: 520px;
-      }
+      html { width: 380px; height: 520px; }
 
       .shell {
         display: grid;
-        grid-template-rows: 64px 1fr;
+        grid-template-rows: 64px 1fr auto auto;
         height: 520px;
       }
 
       .header {
         display: flex;
         align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-        min-height: 64px;
-        padding: 0 16px;
+        gap: 10px;
+        padding: 0 14px;
         color: #24170b;
         background: linear-gradient(90deg, var(--accent-start) 0%, var(--accent-end) 100%);
-        box-sizing: border-box;
-        flex: 0 0 64px;
-      }
-
-      .header-actions {
-        display: flex;
-        align-items: center;
-        gap: 8px;
       }
 
       .brand {
@@ -63,90 +55,235 @@
         align-items: center;
         gap: 8px;
         font-weight: 700;
+        white-space: nowrap;
       }
 
+      .header-search {
+        display: none;
+        flex: 1;
+        min-width: 0;
+      }
+
+      .header-search.is-visible { display: flex; }
+
+      .header-search .search {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex: 1;
+        padding: 6px 10px;
+        border-radius: 10px;
+        background: rgba(36, 23, 11, 0.1);
+      }
+
+      .header-search .search input {
+        all: unset;
+        flex: 1;
+        min-width: 0;
+        color: #24170b;
+        font-size: 13px;
+      }
+
+      .header-search .search input::placeholder { color: rgba(36, 23, 11, 0.5); }
+
+      .header-search .search .icon svg { fill: rgba(36, 23, 11, 0.5); }
+
+      .header-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-shrink: 0;
+      }
+
+      .brand.is-hidden { display: none; }
+
       .count {
-        min-width: 28px;
-        padding: 4px 8px;
+        min-width: 26px;
+        padding: 3px 7px;
         border-radius: 999px;
         text-align: center;
         background: rgba(36, 23, 11, 0.16);
         font-weight: 700;
+        font-size: 13px;
       }
 
       .header-link {
-        padding: 8px 12px;
+        padding: 6px 10px;
         border-radius: 999px;
         background: rgba(36, 23, 11, 0.14);
         color: #24170b;
         font-weight: 700;
+        font-size: 13px;
+        cursor: pointer;
+        border: 0;
+        font: inherit;
       }
 
       .body {
-        display: grid;
-        grid-template-rows: auto auto 1fr auto;
-        gap: 12px;
-        padding: 14px 12px 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 10px 12px 8px;
         min-height: 0;
         overflow: hidden;
       }
 
-      .quick-actions {
-        display: flex;
-        gap: 8px;
-        flex-wrap: wrap;
+      .view-area {
+        display: none;
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
       }
 
-      .toolbar {
+      .view-area.is-visible {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      /* --- Page detail view --- */
+
+      .page-scroll {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+      }
+
+      .page-card {
+        background: rgba(255, 255, 255, 0.06);
+        border-radius: 14px;
+        padding: 12px;
+      }
+
+      .page-card label {
+        display: block;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        font-weight: 700;
+        color: var(--muted);
+        margin-bottom: 3px;
+      }
+
+      .page-card input[type="text"] {
+        width: 100%;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 8px 10px;
+        background: var(--input-bg);
+        color: var(--ink);
+        font: inherit;
+        outline: none;
+        margin-bottom: 8px;
+      }
+
+      .page-card input[type="text"]:focus {
+        border-color: var(--accent-start);
+      }
+
+      .page-flags {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin-bottom: 10px;
+      }
+
+      .flag-pill {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 600;
+        margin: 0;
+        padding: 7px 10px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.04);
+        cursor: pointer;
+        transition: background 0.15s;
+      }
+
+      .flag-pill:hover { background: rgba(255, 255, 255, 0.08); }
+
+      .page-actions {
         display: flex;
         gap: 8px;
+      }
+
+      .page-actions button {
+        flex: 1;
+        border: 0;
+        border-radius: 999px;
+        padding: 9px 14px;
+        font-weight: 700;
+        cursor: pointer;
+        font: inherit;
+        transition: opacity 0.15s;
+      }
+
+      .page-actions button:disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
+      }
+
+      .page-actions .primary {
+        background: var(--accent-grad);
+        color: #24170b;
+      }
+
+      .page-actions .warn {
+        background: rgba(167, 47, 47, 0.9);
+        color: #fff;
+      }
+
+      .back-link {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 0;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        background: none;
+        border: 0;
+        font: inherit;
+      }
+
+      .back-link:hover { color: var(--ink); }
+
+      .back-link .icon svg { width: 14px; height: 14px; }
+
+      /* --- List view --- */
+
+      .quick-actions {
+        display: flex;
+        gap: 6px;
         flex-wrap: wrap;
       }
 
       .filters {
         display: flex;
         gap: 8px;
-        width: 100%;
       }
 
       .filter-chip {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        min-width: 0;
-        padding: 8px 12px;
+        flex: 1;
+        padding: 6px 8px;
         border-radius: 999px;
         background: rgba(255, 255, 255, 0.08);
         color: var(--ink);
         border: 1px solid var(--line);
+        font: inherit;
+        font-size: 12px;
+        cursor: pointer;
       }
 
       .filter-chip.is-active {
         background: rgba(242, 187, 105, 0.18);
         border-color: rgba(242, 187, 105, 0.4);
         color: #ffd68b;
-      }
-
-      .search {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        flex: 1;
-        padding: 10px 12px;
-        border-radius: 12px;
-        background: rgba(255, 255, 255, 0.08);
-        border: 1px solid var(--line);
-      }
-
-      .search input {
-        all: unset;
-        flex: 1;
-        min-width: 0;
-        color: var(--ink);
-      }
-
-      .search input::placeholder {
-        color: var(--muted);
       }
 
       button {
@@ -160,8 +297,8 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        width: 38px;
-        height: 38px;
+        width: 36px;
+        height: 36px;
         border-radius: 999px;
         background: var(--chip);
         color: var(--ink);
@@ -172,14 +309,24 @@
         cursor: progress;
       }
 
+      .icon-button.is-active-seen {
+        background: rgba(84, 214, 154, 0.22);
+        color: #b9f6da;
+      }
+
+      .icon-button.is-active-favorite {
+        background: rgba(242, 187, 105, 0.24);
+        color: #ffd68b;
+      }
+
       .list {
         list-style: none;
         margin: 0;
         padding: 0;
         display: grid;
-        gap: 8px;
+        gap: 6px;
         min-height: 0;
-        overflow: auto;
+        overflow-y: auto;
         align-content: start;
       }
 
@@ -196,7 +343,7 @@
 
       .open {
         display: grid;
-        gap: 3px;
+        gap: 2px;
         flex: 1;
         min-width: 0;
         padding: 0;
@@ -212,35 +359,19 @@
         white-space: nowrap;
       }
 
-      .title {
-        color: var(--ink);
-      }
-
-      .url {
-        color: var(--muted);
-        font-size: 12px;
-      }
+      .title { color: var(--ink); }
+      .url { color: var(--muted); font-size: 12px; }
 
       .actions {
         display: flex;
-        gap: 8px;
+        gap: 6px;
         flex-shrink: 0;
       }
 
       .actions .icon-button {
-        width: 34px;
-        height: 34px;
+        width: 32px;
+        height: 32px;
         background: var(--chip-strong);
-      }
-
-      .icon-button.is-active-seen {
-        background: rgba(84, 214, 154, 0.22);
-        color: #b9f6da;
-      }
-
-      .icon-button.is-active-favorite {
-        background: rgba(242, 187, 105, 0.24);
-        color: #ffd68b;
       }
 
       .empty {
@@ -257,10 +388,7 @@
         height: 16px;
       }
 
-      .icon svg {
-        fill: currentColor;
-      }
-
+      .icon svg { fill: currentColor; }
       .spinner svg {
         fill: none;
         stroke: currentColor;
@@ -268,16 +396,34 @@
         animation: spin 0.9s linear infinite;
       }
 
+      .status-bar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 0 12px 8px;
+        min-height: 0;
+      }
+
       .status {
-        min-height: 1.2em;
-        color: var(--muted);
+        flex: 1;
+        min-width: 0;
         font-size: 12px;
+        color: var(--muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
 
       .sync-summary {
-        min-height: 1.2em;
-        color: rgba(242, 187, 105, 0.92);
         font-size: 12px;
+        color: rgba(242, 187, 105, 0.92);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .spinner svg { animation: none; }
       }
 
       @keyframes spin {
@@ -289,9 +435,15 @@
   <body>
     <main class="shell">
       <header class="header">
-        <div class="brand">
+        <div id="headerBrand" class="brand">
           <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M13 2 5 14h5l-1 8 8-12h-5l1-8Z"/></svg></span>
           <span data-i18n="link_manager_name">Link Manager</span>
+        </div>
+        <div id="headerSearch" class="header-search">
+          <label class="search" aria-label="Cerca link salvati" data-i18n-aria-label="search_saved_links">
+            <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M10 4a6 6 0 1 0 3.87 10.58l4.27 4.28 1.42-1.42-4.28-4.27A6 6 0 0 0 10 4Zm0 2a4 4 0 1 1 0 8 4 4 0 0 1 0-8Z"/></svg></span>
+            <input id="searchInput" type="search" placeholder="Cerca nei link salvati" data-i18n-placeholder="search_saved_links_placeholder">
+          </label>
         </div>
         <div class="header-actions">
           <button id="openArchiveButton" class="header-link" type="button" data-i18n="archive">Archivio</button>
@@ -299,22 +451,49 @@
         </div>
       </header>
       <section class="body">
-        <div id="quickActions" class="quick-actions"></div>
-        <div class="toolbar">
-          <label class="search" aria-label="Cerca link salvati" data-i18n-aria-label="search_saved_links">
-            <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M10 4a6 6 0 1 0 3.87 10.58l4.27 4.28 1.42-1.42-4.28-4.27A6 6 0 0 0 10 4Zm0 2a4 4 0 1 1 0 8 4 4 0 0 1 0-8Z"/></svg></span>
-            <input id="searchInput" type="search" placeholder="Cerca nei link salvati" data-i18n-placeholder="search_saved_links_placeholder">
-          </label>
+        <!-- Page detail view -->
+        <div id="pageView" class="view-area">
+          <div class="quick-actions" id="pageQuickActions"></div>
+          <div class="page-scroll">
+            <div class="page-card">
+              <label for="pageTitleInput">Titolo</label>
+              <input id="pageTitleInput" type="text" placeholder="Titolo">
+              <label for="pageUrlInput">URL</label>
+              <input id="pageUrlInput" type="text" placeholder="https://">
+              <label for="pagePageUrlInput">Pagina origine</label>
+              <input id="pagePageUrlInput" type="text" placeholder="https://">
+              <div class="page-flags">
+                <label class="flag-pill"><input id="pageIsSeen" type="checkbox"> Visto</label>
+                <label class="flag-pill"><input id="pageIsFavorite" type="checkbox"> Favorito</label>
+              </div>
+              <div class="page-actions">
+                <button id="pageUpdateButton" class="primary" type="button">Salva modifiche</button>
+                <button id="pageRemoveButton" class="warn" type="button">Rimuovi</button>
+              </div>
+            </div>
+            <button id="backToListButton" class="back-link" type="button">
+              <span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg></span>
+              Torna alla lista
+            </button>
+          </div>
+        </div>
+
+        <!-- List view -->
+        <div id="listView" class="view-area">
+          <div id="quickActions" class="quick-actions"></div>
           <div class="filters">
             <button id="filterSeenButton" class="filter-chip" type="button" data-i18n="filter_unseen">Non visti</button>
             <button id="filterFavoriteButton" class="filter-chip" type="button" data-i18n="filter_favorites">Favoriti</button>
           </div>
+          <ul id="results" class="list"></ul>
         </div>
-        <ul id="results" class="list"></ul>
+      </section>
+
+      <div class="status-bar">
         <div id="syncSummary" class="sync-summary" aria-live="polite"></div>
         <div id="status" class="status" aria-live="polite"></div>
-      </section>
+      </div>
     </main>
     <script type="module" src="./popup.js"></script>
   </body>
-  </html>
+</html>

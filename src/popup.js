@@ -7,6 +7,19 @@ const statusNode = document.getElementById("status");
 const syncSummaryNode = document.getElementById("syncSummary");
 const quickActionsNode = document.getElementById("quickActions");
 const openArchiveButton = document.getElementById("openArchiveButton");
+const pageViewNode = document.getElementById("pageView");
+const listViewNode = document.getElementById("listView");
+const pageQuickActionsNode = document.getElementById("pageQuickActions");
+const pageTitleInput = document.getElementById("pageTitleInput");
+const pageUrlInput = document.getElementById("pageUrlInput");
+const pagePageUrlInput = document.getElementById("pagePageUrlInput");
+const pageIsSeen = document.getElementById("pageIsSeen");
+const pageIsFavorite = document.getElementById("pageIsFavorite");
+const pageUpdateButton = document.getElementById("pageUpdateButton");
+const pageRemoveButton = document.getElementById("pageRemoveButton");
+const backToListButton = document.getElementById("backToListButton");
+const headerBrand = document.getElementById("headerBrand");
+const headerSearch = document.getElementById("headerSearch");
 
 let popupState = {
   entries: [],
@@ -18,12 +31,15 @@ let searchQuery = "";
 let filterSeenOnly = false;
 let filterFavoriteOnly = false;
 let pendingAction = null;
+let userExplicitListView = false;
 
 function t(key, substitutions) {
   return chrome.i18n.getMessage(key, substitutions) || key;
 }
 
 init();
+
+/* ── List view events ── */
 
 searchInput.addEventListener("input", (event) => {
   searchQuery = event.target.value;
@@ -42,6 +58,14 @@ filterFavoriteButton.addEventListener("click", () => {
 
 openArchiveButton.addEventListener("click", openArchivePage);
 
+/* ── Page view events ── */
+
+pageUpdateButton.addEventListener("click", handlePageUpdate);
+pageRemoveButton.addEventListener("click", handlePageRemove);
+backToListButton.addEventListener("click", showListView);
+
+/* ── Init ── */
+
 async function init() {
   try {
     applyStaticI18n();
@@ -53,7 +77,12 @@ async function init() {
     popupState = state;
     activeTab = tabs[0] || null;
     await refreshCurrentPageState();
-    render();
+
+    if (currentPageState.savedEntry) {
+      showPageView(currentPageState.savedEntry);
+    } else {
+      showListView();
+    }
 
     if (state.auth?.isAuthenticated) {
       void refreshPopupStateFromSync();
@@ -63,67 +92,170 @@ async function init() {
   }
 }
 
-function applyStaticI18n() {
-  const uiLang = chrome.i18n.getUILanguage();
-  document.documentElement.lang = uiLang?.startsWith("it") ? "it" : "en";
-
-  document.documentElement.querySelectorAll("[data-i18n]").forEach((node) => {
-    const key = node.getAttribute("data-i18n");
-    if (!key) {
-      return;
-    }
-
-    node.textContent = t(key);
-  });
-
-  document.documentElement
-    .querySelectorAll("[data-i18n-placeholder]")
-    .forEach((node) => {
-      const key = node.getAttribute("data-i18n-placeholder");
-      if (!key) {
-        return;
-      }
-
-      node.setAttribute("placeholder", t(key));
-    });
-
-  document.documentElement
-    .querySelectorAll("[data-i18n-aria-label]")
-    .forEach((node) => {
-      const key = node.getAttribute("data-i18n-aria-label");
-      if (!key) {
-        return;
-      }
-
-      node.setAttribute("aria-label", t(key));
-    });
+function showPageView(entry) {
+  userExplicitListView = false;
+  pageViewNode.classList.add("is-visible");
+  listViewNode.classList.remove("is-visible");
+  updateHeaderForView("page");
+  countNode.textContent = String(popupState.entries.length);
+  populatePageView(entry);
+  renderPageQuickActions();
+  renderSyncSummary();
 }
 
-async function refreshPopupStateFromSync() {
+function showListView() {
+  userExplicitListView = true;
+  pageViewNode.classList.remove("is-visible");
+  listViewNode.classList.add("is-visible");
+  updateHeaderForView("list");
+  render();
+}
+
+function updateHeaderForView(view) {
+  const isPage = view === "page";
+  headerBrand.classList.toggle("is-hidden", !isPage);
+  headerSearch.classList.toggle("is-visible", !isPage);
+}
+
+function populatePageView(entry) {
+  pageTitleInput.value = entry.title || "";
+  pageUrlInput.value = entry.url || "";
+  pagePageUrlInput.value = entry.pageUrl || "";
+  pageIsSeen.checked = Boolean(entry.isSeen);
+  pageIsFavorite.checked = Boolean(entry.isFavorite);
+}
+
+function renderPageQuickActions() {
+  const navigableEntries = getNavigableEntries();
+  const { previousEntry, nextEntry } = getCurrentEntryNavigation();
+
+  pageQuickActionsNode.innerHTML = `
+    <button class="icon-button" type="button" data-action="prev-current" data-id="${escapeHtml(previousEntry?.id || "")}" title="${t("previous_link")}" aria-label="${t("previous_link")}" ${getDisabledAttrs(!previousEntry || isAnyPending())}>
+      ${isPending("prev-current") ? spinnerMarkup() : iconMarkup("chevron-left")}
+    </button>
+    <button class="icon-button" type="button" data-action="next-current" data-id="${escapeHtml(nextEntry?.id || "")}" title="${t("next_link")}" aria-label="${t("next_link")}" ${getDisabledAttrs(!nextEntry || isAnyPending())}>
+      ${isPending("next-current") ? spinnerMarkup() : iconMarkup("chevron-right")}
+    </button>
+    <button class="icon-button" type="button" data-action="random" title="${t("open_random_link")}" aria-label="${t("open_random_link")}" ${getDisabledAttrs(isAnyPending() || !navigableEntries.length)}>
+      ${isPending("random") ? spinnerMarkup() : iconMarkup("shuffle")}
+    </button>
+  `;
+
+  pageQuickActionsNode.querySelectorAll("[data-action]").forEach((button) => {
+    button.addEventListener("click", async (event) => {
+      event.preventDefault();
+      const action = button.getAttribute("data-action");
+      const id = button.getAttribute("data-id");
+
+      if (!action || button.hasAttribute("disabled")) return;
+
+      await runAction(action, async () => {
+        switch (action) {
+          case "prev-current":
+          case "next-current":
+            if (id) {
+              const targetEntry = popupState.entries.find((e) => e.id === id);
+              if (targetEntry && typeof activeTab?.id === "number") {
+                await chrome.tabs.update(activeTab.id, {
+                  url: targetEntry.url,
+                  active: true,
+                });
+                window.close();
+              }
+            }
+            break;
+          case "random":
+            await sendMessage({
+              type: "open-random-link",
+              payload: { tabId: activeTab?.id, windowId: activeTab?.windowId },
+            });
+            window.close();
+            break;
+        }
+      }, id || null);
+    });
+  });
+}
+
+async function handlePageUpdate() {
+  if (!currentPageState.savedEntry) return;
+
+  const payload = {
+    id: currentPageState.savedEntry.id,
+    url: pageUrlInput.value.trim(),
+    title: pageTitleInput.value.trim(),
+    pageUrl: pagePageUrlInput.value.trim(),
+    isSeen: pageIsSeen.checked,
+    isFavorite: pageIsFavorite.checked,
+  };
+
+  if (!payload.url) {
+    setStatus(t("enter_valid_url"), true);
+    pageUrlInput.focus();
+    return;
+  }
+
   try {
-    await sendMessage({ type: "sync-supabase" });
-    popupState = await sendMessage({ type: "get-state" });
-    await refreshCurrentPageState();
-    render();
-  } catch {
-    // Keep the already rendered local state if background sync fails.
+    pageUpdateButton.disabled = true;
+    pageUpdateButton.textContent = t("saving_short");
+    const result = await sendMessage({ type: "update-link", payload });
+    replaceEntryInPopupState(result.entry);
+    currentPageState.savedEntry = result.entry;
+    currentPageState.isSeen = result.entry.isSeen;
+    currentPageState.isFavorite = result.entry.isFavorite;
+    populatePageView(result.entry);
+    setStatus(t("link_updated"));
+  } catch (error) {
+    setStatus(error.message || t("error_saving_link"), true);
+  } finally {
+    pageUpdateButton.disabled = false;
+    pageUpdateButton.textContent = t("save_changes");
   }
 }
 
+async function handlePageRemove() {
+  if (!currentPageState.savedEntry) return;
+
+  try {
+    pageRemoveButton.disabled = true;
+    pageRemoveButton.textContent = t("removing_short");
+    const result = await sendMessage({
+      type: "remove-link-by-url",
+      payload: { url: activeTab?.url },
+    });
+    popupState.entries = popupState.entries.filter(
+      (entry) => entry.normalizedUrl !== currentPageState.normalizedUrl,
+    );
+    currentPageState = createEmptyCurrentPageState();
+    setStatus(
+      result.removed ? t("page_removed_database") : t("page_not_in_database"),
+    );
+    showListView();
+  } catch (error) {
+    setStatus(error.message || t("operation_failed"), true);
+  } finally {
+    pageRemoveButton.disabled = false;
+    pageRemoveButton.textContent = t("remove");
+  }
+}
+
+/* ── List view ── */
+
 function render() {
-  countNode.textContent = String(popupState.entries.length);
   renderSyncSummary();
   renderFilterState();
-
-  renderQuickActions();
 
   const filteredEntries = filterEntries(searchQuery, popupState.entries);
   const hasActiveSearch = Boolean(
     searchQuery.trim() || filterSeenOnly || filterFavoriteOnly,
   );
-  resultsNode.innerHTML = !hasActiveSearch
-    ? `<li class="empty">${escapeHtml(t("type_to_search_saved_link"))}</li>`
-    : filteredEntries.length
+
+  if (listViewNode.classList.contains("is-visible")) {
+    countNode.textContent = String(popupState.entries.length);
+    renderQuickActions();
+  }
+
+  resultsNode.innerHTML = filteredEntries.length
       ? filteredEntries
           .map(
             (entry) => `
@@ -154,98 +286,57 @@ function render() {
       const action = button.getAttribute("data-action");
       const id = button.getAttribute("data-id");
 
-      if (!action || !id) {
-        return;
-      }
+      if (!action || !id) return;
 
-      await runAction(
-        action,
-        async () => {
-          switch (action) {
-            case "open":
-              await sendMessage({
-                type: "open-link",
-                payload: { id, active: true, openInNewTab: true },
-              });
-              window.close();
-              break;
-            case "remove":
-              await sendMessage({ type: "remove-link", payload: { id } });
-              popupState.entries = popupState.entries.filter(
-                (entry) => entry.id !== id,
-              );
-              syncCurrentPageStateFromEntries({ preserveSnapshot: true });
-              setStatus(t("link_removed"));
-              break;
-            case "toggle-seen":
-              {
-                const result = await sendMessage({
-                  type: "toggle-seen",
-                  payload: { id },
-                });
-                if (result.entry) {
-                  replaceEntryInPopupState(result.entry);
-                }
-                syncCurrentPageStateFromEntries({ preserveSnapshot: true });
-                setStatus(
-                  result.enabled
-                    ? t("link_marked_seen")
-                    : t("link_marked_unseen"),
-                );
-              }
-              break;
-            case "toggle-favorite":
-              {
-                const result = await sendMessage({
-                  type: "toggle-favorite",
-                  payload: { id },
-                });
-                if (result.entry) {
-                  replaceEntryInPopupState(result.entry);
-                }
-                syncCurrentPageStateFromEntries({ preserveSnapshot: true });
-                setStatus(
-                  result.enabled
-                    ? t("link_added_favorites")
-                    : t("link_removed_favorites"),
-                );
-              }
-              break;
-            default:
-              break;
+      await runAction(action, async () => {
+        switch (action) {
+          case "open":
+            await sendMessage({
+              type: "open-link",
+              payload: { id, active: true, openInNewTab: true },
+            });
+            window.close();
+            break;
+          case "remove":
+            await sendMessage({ type: "remove-link", payload: { id } });
+            popupState.entries = popupState.entries.filter(
+              (entry) => entry.id !== id,
+            );
+            syncCurrentPageStateFromEntries({ preserveSnapshot: true });
+            setStatus(t("link_removed"));
+            break;
+          case "toggle-seen": {
+            const seenResult = await sendMessage({
+              type: "toggle-seen",
+              payload: { id },
+            });
+            if (seenResult.entry) replaceEntryInPopupState(seenResult.entry);
+            syncCurrentPageStateFromEntries({ preserveSnapshot: true });
+            setStatus(
+              seenResult.enabled
+                ? t("link_marked_seen")
+                : t("link_marked_unseen"),
+            );
+            break;
           }
-        },
-        id,
-      );
+          case "toggle-favorite": {
+            const favResult = await sendMessage({
+              type: "toggle-favorite",
+              payload: { id },
+            });
+            if (favResult.entry) replaceEntryInPopupState(favResult.entry);
+            syncCurrentPageStateFromEntries({ preserveSnapshot: true });
+            setStatus(
+              favResult.enabled
+                ? t("link_added_favorites")
+                : t("link_removed_favorites"),
+            );
+            break;
+          }
+        }
+      }, id);
     });
   });
-}
-
-function renderSyncSummary() {
-  const sync = popupState.sync || {};
-
-  if (sync.isSyncing) {
-    syncSummaryNode.textContent = t("sync_in_progress");
-    return;
-  }
-
-  if (sync.pendingCount) {
-    const nextFlush = sync.nextFlushAt
-      ? t("flush_at", [formatDateTime(sync.nextFlushAt)])
-      : "";
-    syncSummaryNode.textContent = t("pending_queue_with_flush", [
-      String(sync.pendingCount),
-      nextFlush,
-    ]);
-    return;
-  }
-
-  syncSummaryNode.textContent = t("no_changes_queued");
-}
-
-function renderFilterState() {
-  filterSeenButton.classList.toggle("is-active", filterSeenOnly);
-  filterFavoriteButton.classList.toggle("is-active", filterFavoriteOnly);
 }
 
 function renderQuickActions() {
@@ -276,6 +367,10 @@ function renderQuickActions() {
       ${isPending(currentToggleAction) ? spinnerMarkup() : iconMarkup(currentToggleIcon)}
     </button>
     ${currentPageExtraActions}
+    ${currentPageState.savedEntry ? `
+    <button class="icon-button" type="button" data-action="view-page" title="${t("edit_link_title")}" aria-label="${t("edit_link_title")}" ${getDisabledAttrs(isAnyPending())}>
+      ${isPending("view-page") ? spinnerMarkup() : iconMarkup("edit")}
+    </button>` : ""}
     <button class="icon-button" type="button" data-action="random" title="${t("open_random_link")}" aria-label="${t("open_random_link")}" ${getDisabledAttrs(isAnyPending() || !navigableEntries.length)}>
       ${isPending("random") ? spinnerMarkup() : iconMarkup("shuffle")}
     </button>
@@ -287,148 +382,151 @@ function renderQuickActions() {
       const action = button.getAttribute("data-action");
       const id = button.getAttribute("data-id");
 
-      if (!action || button.hasAttribute("disabled")) {
-        return;
-      }
+      if (!action || button.hasAttribute("disabled")) return;
 
-      await runAction(
-        action,
-        async () => {
-          switch (action) {
-            case "prev-current":
-            case "next-current":
-              if (id) {
-                const targetEntry = popupState.entries.find(
-                  (entry) => entry.id === id,
-                );
-                if (targetEntry && typeof activeTab?.id === "number") {
-                  await chrome.tabs.update(activeTab.id, {
-                    url: targetEntry.url,
-                    active: true,
-                  });
-                  window.close();
-                }
+      await runAction(action, async () => {
+        switch (action) {
+          case "prev-current":
+          case "next-current":
+            if (id) {
+              const targetEntry = popupState.entries.find((e) => e.id === id);
+              if (targetEntry && typeof activeTab?.id === "number") {
+                await chrome.tabs.update(activeTab.id, {
+                  url: targetEntry.url,
+                  active: true,
+                });
+                window.close();
               }
-              break;
-            case "save-current": {
-              const result = await sendMessage({
-                type: "save-link",
-                payload: {
-                  url: activeTab?.url,
-                  title: activeTab?.title || activeTab?.url,
-                  text: "",
-                  pageUrl: activeTab?.url,
-                },
-              });
-              setStatus(formatSaveFeedback(result.status));
-              if (result.entry) {
-                popupState.entries = [
-                  result.entry,
-                  ...popupState.entries.filter(
-                    (entry) => entry.id !== result.entry.id,
-                  ),
-                ];
-                currentPageState.normalizedUrl = result.entry.normalizedUrl;
-              }
-              syncCurrentPageStateFromEntries();
-              break;
             }
-            case "remove-current": {
-              const result = await sendMessage({
-                type: "remove-link-by-url",
-                payload: { url: activeTab?.url },
-              });
-              setStatus(
-                result.removed
-                  ? t("page_removed_database")
-                  : t("page_not_in_database"),
-              );
-              popupState.entries = popupState.entries.filter(
-                (entry) =>
-                  entry.normalizedUrl !== currentPageState.normalizedUrl,
-              );
-              syncCurrentPageStateFromEntries({ preserveSnapshot: true });
-              break;
+            break;
+          case "save-current": {
+            const saveResult = await sendMessage({
+              type: "save-link",
+              payload: {
+                url: activeTab?.url,
+                title: activeTab?.title || activeTab?.url,
+                text: "",
+                pageUrl: activeTab?.url,
+              },
+            });
+            setStatus(formatSaveFeedback(saveResult.status));
+            if (saveResult.entry) {
+              popupState.entries = [
+                saveResult.entry,
+                ...popupState.entries.filter(
+                  (entry) => entry.id !== saveResult.entry.id,
+                ),
+              ];
+              currentPageState.normalizedUrl = saveResult.entry.normalizedUrl;
             }
-            case "bookmark-current": {
-              const result = await sendMessage({
-                type: "bookmark-link",
-                payload: {
-                  url: activeTab?.url,
-                  title: activeTab?.title || activeTab?.url,
-                },
-              });
-              setStatus(
-                result.alreadyBookmarked
-                  ? t("page_already_in_favorites")
-                  : t("page_added_favorites"),
-              );
-              if (result.entry) {
-                popupState.entries = [
-                  result.entry,
-                  ...popupState.entries.filter(
-                    (entry) => entry.id !== result.entry.id,
-                  ),
-                ];
-                currentPageState.normalizedUrl = result.entry.normalizedUrl;
-              }
-              syncCurrentPageStateFromEntries({ preserveSnapshot: true });
-              break;
-            }
-            case "toggle-seen-current": {
-              if (!currentPageState.savedEntry) {
-                break;
-              }
-
-              const result = await sendMessage({
-                type: "toggle-seen",
-                payload: { id: currentPageState.savedEntry.id },
-              });
-              replaceEntryInPopupState(result.entry);
-              syncCurrentPageStateFromEntries({ preserveSnapshot: true });
-              setStatus(
-                result.enabled
-                  ? t("page_marked_seen")
-                  : t("page_marked_unseen"),
-              );
-              break;
-            }
-            case "toggle-favorite-current": {
-              if (!currentPageState.savedEntry) {
-                break;
-              }
-
-              const result = await sendMessage({
-                type: "toggle-favorite",
-                payload: { id: currentPageState.savedEntry.id },
-              });
-              replaceEntryInPopupState(result.entry);
-              syncCurrentPageStateFromEntries({ preserveSnapshot: true });
-              setStatus(
-                result.enabled
-                  ? t("page_added_favorites")
-                  : t("page_removed_favorites"),
-              );
-              break;
-            }
-            case "random":
-              await sendMessage({
-                type: "open-random-link",
-                payload: {
-                  tabId: activeTab?.id,
-                  windowId: activeTab?.windowId,
-                },
-              });
-              window.close();
-              break;
-            default:
-              break;
+            syncCurrentPageStateFromEntries();
+            break;
           }
-        },
-        id || null,
-      );
+          case "remove-current": {
+            const removeResult = await sendMessage({
+              type: "remove-link-by-url",
+              payload: { url: activeTab?.url },
+            });
+            setStatus(
+              removeResult.removed
+                ? t("page_removed_database")
+                : t("page_not_in_database"),
+            );
+            popupState.entries = popupState.entries.filter(
+              (entry) =>
+                entry.normalizedUrl !== currentPageState.normalizedUrl,
+            );
+            syncCurrentPageStateFromEntries({ preserveSnapshot: true });
+            break;
+          }
+          case "toggle-seen-current": {
+            if (!currentPageState.savedEntry) break;
+            const seenResult = await sendMessage({
+              type: "toggle-seen",
+              payload: { id: currentPageState.savedEntry.id },
+            });
+            replaceEntryInPopupState(seenResult.entry);
+            syncCurrentPageStateFromEntries({ preserveSnapshot: true });
+            setStatus(
+              seenResult.enabled
+                ? t("page_marked_seen")
+                : t("page_marked_unseen"),
+            );
+            break;
+          }
+          case "toggle-favorite-current": {
+            if (!currentPageState.savedEntry) break;
+            const favResult = await sendMessage({
+              type: "toggle-favorite",
+              payload: { id: currentPageState.savedEntry.id },
+            });
+              replaceEntryInPopupState(favResult.entry);
+            syncCurrentPageStateFromEntries({ preserveSnapshot: true });
+            setStatus(
+              favResult.enabled
+                ? t("link_added_favorites")
+                : t("link_removed_favorites"),
+            );
+            break;
+          }
+          case "view-page":
+            if (currentPageState.savedEntry) {
+              showPageView(currentPageState.savedEntry);
+            }
+            break;
+          case "random":
+            await sendMessage({
+              type: "open-random-link",
+              payload: { tabId: activeTab?.id, windowId: activeTab?.windowId },
+            });
+            window.close();
+            break;
+        }
+      }, id || null);
     });
   });
+}
+
+/* ── Shared ── */
+
+async function refreshPopupStateFromSync() {
+  try {
+    await sendMessage({ type: "sync-supabase" });
+    popupState = await sendMessage({ type: "get-state" });
+    await refreshCurrentPageState();
+
+    if (currentPageState.savedEntry && !userExplicitListView) {
+      showPageView(currentPageState.savedEntry);
+    } else {
+      showListView();
+    }
+  } catch {
+    // Keep the already rendered local state if background sync fails.
+  }
+}
+
+function renderSyncSummary() {
+  const sync = popupState.sync || {};
+  if (sync.isSyncing) {
+    syncSummaryNode.textContent = t("sync_in_progress");
+    return;
+  }
+  if (sync.pendingCount) {
+    const nextFlush = sync.nextFlushAt
+      ? t("flush_at", [formatDateTime(sync.nextFlushAt)])
+      : "";
+    syncSummaryNode.textContent = t("pending_queue_with_flush", [
+      String(sync.pendingCount),
+      nextFlush,
+    ]);
+    return;
+  }
+  syncSummaryNode.textContent = t("no_changes_queued");
+}
+
+function renderFilterState() {
+  filterSeenButton.classList.toggle("is-active", filterSeenOnly);
+  filterFavoriteButton.classList.toggle("is-active", filterFavoriteOnly);
 }
 
 async function runAction(action, callback, targetId = null) {
@@ -538,9 +636,7 @@ function createNavigationSnapshot(entryId) {
   const currentIndex = navigableEntries.findIndex(
     (entry) => entry.id === entryId,
   );
-  if (currentIndex === -1) {
-    return null;
-  }
+  if (currentIndex === -1) return null;
 
   return {
     previousEntryId: navigableEntries[currentIndex + 1]?.id || null,
@@ -549,12 +645,12 @@ function createNavigationSnapshot(entryId) {
 }
 
 function getCurrentEntryNavigation() {
-  const navigableEntries = getNavigableEntries(currentPageState.savedEntry?.id);
-
+  const navigableEntries = getNavigableEntries(
+    currentPageState.savedEntry?.id,
+  );
   if (!currentPageState.navigationSnapshot) {
     return { previousEntry: null, nextEntry: null };
   }
-
   return {
     previousEntry:
       navigableEntries.find(
@@ -570,18 +666,9 @@ function getCurrentEntryNavigation() {
 
 function getNavigableEntries(preservedEntryId = null) {
   return popupState.entries.filter((entry) => {
-    if (preservedEntryId && entry.id === preservedEntryId) {
-      return true;
-    }
-
-    if (popupState.settings.skipSeenInNavigation && entry.isSeen) {
-      return false;
-    }
-
-    if (popupState.settings.skipFavoriteInNavigation && entry.isFavorite) {
-      return false;
-    }
-
+    if (preservedEntryId && entry.id === preservedEntryId) return true;
+    if (popupState.settings.skipSeenInNavigation && entry.isSeen) return false;
+    if (popupState.settings.skipFavoriteInNavigation && entry.isFavorite) return false;
     return true;
   });
 }
@@ -606,15 +693,11 @@ function formatSaveFeedback(status) {
     updated: t("link_updated"),
     saved: t("link_saved"),
   };
-
   return feedback[status] || t("operation_completed");
 }
 
 function getToggleStateClass(kind, isActive) {
-  if (!isActive) {
-    return "";
-  }
-
+  if (!isActive) return "";
   return kind === "seen" ? " is-active-seen" : " is-active-favorite";
 }
 
@@ -633,18 +716,9 @@ function filterEntries(query, entries) {
   const normalizedQuery = query.trim().toLowerCase();
   return entries
     .filter((entry) => {
-      if (filterSeenOnly && entry.isSeen) {
-        return false;
-      }
-
-      if (filterFavoriteOnly && !entry.isFavorite) {
-        return false;
-      }
-
-      if (!normalizedQuery) {
-        return true;
-      }
-
+      if (filterSeenOnly && entry.isSeen) return false;
+      if (filterFavoriteOnly && !entry.isFavorite) return false;
+      if (!normalizedQuery) return true;
       return [entry.title, entry.url, entry.pageUrl]
         .filter(Boolean)
         .some((value) => value.toLowerCase().includes(normalizedQuery));
@@ -670,8 +744,8 @@ function iconMarkup(name) {
       '<span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m12 2 2.81 6.63 7.19.61-5.46 4.73 1.64 7.03L12 17.27 5.82 21l1.64-7.03L2 9.24l7.19-.61L12 2Z"/></svg></span>',
     trash:
       '<span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 3h6l1 2h4v2H4V5h4l1-2Zm-1 6h2v8H8V9Zm6 0h2v8h-2V9ZM6 9h12l-1 11H7L6 9Z"/></svg></span>',
+    edit: '<span class="icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25Zm14.71-9.04a1.003 1.003 0 0 0 0-1.42l-2.5-2.5a1.003 1.003 0 0 0-1.42 0l-1.96 1.96 3.75 3.75 2.13-1.79Z"/></svg></span>',
   };
-
   return icons[name] || "";
 }
 
@@ -693,6 +767,33 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
+function applyStaticI18n() {
+  const uiLang = chrome.i18n.getUILanguage();
+  document.documentElement.lang = uiLang?.startsWith("it") ? "it" : "en";
+
+  document.documentElement.querySelectorAll("[data-i18n]").forEach((node) => {
+    const key = node.getAttribute("data-i18n");
+    if (!key) return;
+    node.textContent = t(key);
+  });
+
+  document.documentElement
+    .querySelectorAll("[data-i18n-placeholder]")
+    .forEach((node) => {
+      const key = node.getAttribute("data-i18n-placeholder");
+      if (!key) return;
+      node.setAttribute("placeholder", t(key));
+    });
+
+  document.documentElement
+    .querySelectorAll("[data-i18n-aria-label]")
+    .forEach((node) => {
+      const key = node.getAttribute("data-i18n-aria-label");
+      if (!key) return;
+      node.setAttribute("aria-label", t(key));
+    });
+}
+
 function sendMessage(message) {
   return new Promise((resolve, reject) => {
     chrome.runtime.sendMessage(message, (response) => {
@@ -700,12 +801,10 @@ function sendMessage(message) {
         reject(new Error(chrome.runtime.lastError.message));
         return;
       }
-
       if (!response?.ok) {
         reject(new Error(response?.error || "Unknown error"));
         return;
       }
-
       resolve(response.result);
     });
   });
