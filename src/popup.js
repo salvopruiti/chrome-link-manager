@@ -20,6 +20,12 @@ const pageRemoveButton = document.getElementById("pageRemoveButton");
 const backToListButton = document.getElementById("backToListButton");
 const headerBrand = document.getElementById("headerBrand");
 const headerSearch = document.getElementById("headerSearch");
+const pageTagField = document.getElementById("pageTagField");
+const pageTagChips = document.getElementById("pageTagChips");
+const pageTagSuggestions = document.getElementById("pageTagSuggestions");
+
+let pageTagCurrentTags = [];
+let pageTagOnChange = null;
 
 let popupState = {
   entries: [],
@@ -36,6 +42,92 @@ let userExplicitListView = false;
 function t(key, substitutions) {
   return chrome.i18n.getMessage(key, substitutions) || key;
 }
+
+function initPageTagInput() {
+  function getTags() {
+    return [...pageTagCurrentTags]
+  }
+
+  function setTags(tags) {
+    pageTagCurrentTags = Array.isArray(tags) ? tags.filter(Boolean) : []
+    renderPageTagChips()
+  }
+
+  function renderPageTagChips() {
+    pageTagChips.innerHTML = pageTagCurrentTags
+      .map(
+        (tag) =>
+          `<span class="tag-chip">${escapeHtml(tag)}<button type="button" data-page-tag-remove="${escapeHtml(tag)}" aria-label="${t("remove_tag")}"><svg viewBox="0 0 24 24"><path d="M18.3 5.71 16.59 4 12 8.59 7.41 4 5.71 5.71 10.59 10.6 5.7 15.49l1.41 1.41L12 12l4.89 4.9 1.41-1.41-4.89-4.89 4.89-4.89Z"/></svg></button></span>`,
+      )
+      .join("")
+  }
+
+  pageTagField.addEventListener("input", () => {
+    const value = pageTagField.value.trim()
+    if (!value) {
+      pageTagSuggestions.classList.remove("is-visible")
+      return
+    }
+    const existing = new Set(pageTagCurrentTags.map((t) => t.toLowerCase()))
+    const allTags = new Set(
+      popupState.entries.flatMap((e) => (Array.isArray(e.tags) ? e.tags : [])),
+    )
+    const suggestions = [...allTags].filter(
+      (tag) =>
+        tag.toLowerCase().includes(value.toLowerCase()) &&
+        !existing.has(tag.toLowerCase()),
+    )
+    pageTagSuggestions.innerHTML = suggestions
+      .map((s) => `<div class="tag-suggestions-item" data-page-tag-suggestion="${escapeHtml(s)}">${escapeHtml(s)}</div>`)
+      .join("")
+    pageTagSuggestions.classList.toggle("is-visible", suggestions.length > 0)
+  })
+
+  pageTagField.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === ",") {
+      event.preventDefault()
+      const value = pageTagField.value.trim().replace(/,/g, "")
+      if (value && !pageTagCurrentTags.map((t) => t.toLowerCase()).includes(value.toLowerCase())) {
+        pageTagCurrentTags.push(value)
+        renderPageTagChips()
+      }
+      pageTagField.value = ""
+      pageTagSuggestions.classList.remove("is-visible")
+    }
+  })
+
+  pageTagSuggestions.addEventListener("click", (event) => {
+    const item = event.target.closest("[data-page-tag-suggestion]")
+    if (!item) return
+    const tag = item.getAttribute("data-page-tag-suggestion")
+    if (tag && !pageTagCurrentTags.map((t) => t.toLowerCase()).includes(tag.toLowerCase())) {
+      pageTagCurrentTags.push(tag)
+      renderPageTagChips()
+    }
+    pageTagField.value = ""
+    pageTagSuggestions.classList.remove("is-visible")
+    pageTagField.focus()
+  })
+
+  pageTagChips.addEventListener("click", (event) => {
+    const btn = event.target.closest("[data-page-tag-remove]")
+    if (!btn) return
+    const tag = btn.getAttribute("data-page-tag-remove")
+    pageTagCurrentTags = pageTagCurrentTags.filter((t) => t !== tag)
+    renderPageTagChips()
+    pageTagField.focus()
+  })
+
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest("#pageTagInput")) {
+      pageTagSuggestions.classList.remove("is-visible")
+    }
+  })
+
+  return { getTags, setTags }
+}
+
+const pageTagInput = initPageTagInput()
 
 init();
 
@@ -123,6 +215,7 @@ function populatePageView(entry) {
   pagePageUrlInput.value = entry.pageUrl || "";
   pageIsSeen.checked = Boolean(entry.isSeen);
   pageIsFavorite.checked = Boolean(entry.isFavorite);
+  pageTagInput.setTags(entry.tags);
 }
 
 function renderPageQuickActions() {
@@ -187,6 +280,7 @@ async function handlePageUpdate() {
     pageUrl: pagePageUrlInput.value.trim(),
     isSeen: pageIsSeen.checked,
     isFavorite: pageIsFavorite.checked,
+    tags: pageTagInput.getTags(),
   };
 
   if (!payload.url) {

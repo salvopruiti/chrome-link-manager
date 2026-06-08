@@ -665,5 +665,20 @@
   },
   "auth_complete_error": {
     "message": "Unable to complete access."
+  },
+  "tags_label": {
+    "message": "Tags"
+  },
+  "add_tag": {
+    "message": "Add tag"
+  },
+  "remove_tag": {
+    "message": "Remove tag"
+  },
+  "tag_placeholder": {
+    "message": "Add tag and press Enter"
+  },
+  "filter_by_tags": {
+    "message": "Filter by tag"
   }
 }

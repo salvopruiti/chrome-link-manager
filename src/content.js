@@ -606,6 +606,16 @@ function renderBar() {
             <strong title="${escapeHtml(currentPageTitle)}">${escapeHtml(currentPageTitle)}</strong>
             <span class="lm-current-status">${escapeHtml(currentPageStatus)}</span>
           </div>
+          ${currentPageState.savedEntry ? `
+          <div class="lm-tags">
+            <div class="lm-tag-chips" id="lmBarTagChips">
+              ${(currentPageState.savedEntry.tags || []).map((tag) => `
+                <span class="lm-tag-chip">${escapeHtml(tag)}<button type="button" data-action="bar-remove-tag" data-tag="${escapeHtml(tag)}" aria-label="${t("remove_tag")}"><svg viewBox="0 0 24 24"><path d="M18.3 5.71 16.59 4 12 8.59 7.41 4 5.71 5.71 10.59 10.6 5.7 15.49l1.41 1.41L12 12l4.89 4.9 1.41-1.41-4.89-4.89 4.89-4.89Z"/></svg></button></span>
+              `).join("")}
+            </div>
+            <input type="text" class="lm-tag-input" id="lmBarTagField" placeholder="+${t("add_tag")}" autocomplete="off">
+          </div>
+          ` : ""}
           <div class="lm-current-actions">
             <button title="${currentToggleLabel}" class="lm-action-button" type="button" data-action="${currentToggleAction}" ${getDisabledAttrs(busy || !currentPageState.canSave)}>
               ${isPending(currentToggleAction) ? spinnerMarkup() : iconMarkup(currentToggleIcon)}
@@ -782,6 +792,29 @@ function attachUiHandlers(root) {
             flashMessage(formatBatchSaveMessage(result));
             break;
           }
+          case "bar-remove-tag": {
+            if (!currentPageState.savedEntry) break
+            const tagToRemove = button.getAttribute("data-tag")
+            if (!tagToRemove) break
+            const currentTags = currentPageState.savedEntry.tags || []
+            const nextTags = currentTags.filter((t) => t !== tagToRemove)
+            const result = await sendMessage({
+              type: "update-link",
+              payload: {
+                id: currentPageState.savedEntry.id,
+                url: currentPageState.savedEntry.url,
+                title: currentPageState.savedEntry.title,
+                pageUrl: currentPageState.savedEntry.pageUrl,
+                isSeen: currentPageState.savedEntry.isSeen,
+                isFavorite: currentPageState.savedEntry.isFavorite,
+                tags: nextTags,
+              },
+            })
+            replaceEntryInLocalState(result.entry)
+            flashMessage(t("link_updated"))
+            renderBar()
+            break
+          }
           case "toggle-capture-all": {
             const nextValue = !extensionState.settings.captureAllClicks;
             extensionState.settings.captureAllClicks = nextValue;
@@ -817,6 +850,44 @@ function attachUiHandlers(root) {
       }
     });
   });
+
+  const tagInput = root.querySelector(".lm-tag-input")
+  if (tagInput) {
+    tagInput.addEventListener("keydown", async (event) => {
+      if (event.key !== "Enter" && event.key !== ",") return
+      event.preventDefault()
+      const value = tagInput.value.trim().replace(/,/g, "")
+      if (!value || !currentPageState.savedEntry) return
+      const currentTags = currentPageState.savedEntry.tags || []
+      if (currentTags.map((t) => t.toLowerCase()).includes(value.toLowerCase())) {
+        tagInput.value = ""
+        return
+      }
+      const nextTags = [...currentTags, value]
+      try {
+        tagInput.disabled = true
+        const result = await sendMessage({
+          type: "update-link",
+          payload: {
+            id: currentPageState.savedEntry.id,
+            url: currentPageState.savedEntry.url,
+            title: currentPageState.savedEntry.title,
+            pageUrl: currentPageState.savedEntry.pageUrl,
+            isSeen: currentPageState.savedEntry.isSeen,
+            isFavorite: currentPageState.savedEntry.isFavorite,
+            tags: nextTags,
+          },
+        })
+        replaceEntryInLocalState(result.entry)
+        flashMessage(t("link_updated"))
+      } catch (error) {
+        flashMessage(error.message || t("operation_failed"), true)
+      } finally {
+        tagInput.disabled = false
+        renderBar()
+      }
+    })
+  }
 }
 
 function placeRoot(wrapper, toastHost, root) {
@@ -1201,6 +1272,75 @@ function installStyles() {
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
+    }
+
+    #${ROOT_ID} .lm-tags {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+    }
+
+    #${ROOT_ID} .lm-tag-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+
+    #${ROOT_ID} .lm-tag-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      padding: 2px 8px;
+      font-size: 12px;
+      background: rgba(110, 160, 255, 0.18);
+      color: #b3d0ff;
+      border-radius: 4px;
+    }
+
+    #${ROOT_ID} .lm-tag-chip button {
+      all: unset;
+      cursor: pointer;
+      width: 14px;
+      height: 14px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0.6;
+      border-radius: 50%;
+    }
+
+    #${ROOT_ID} .lm-tag-chip button:hover {
+      opacity: 1;
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    #${ROOT_ID} .lm-tag-chip button svg {
+      width: 12px;
+      height: 12px;
+      fill: currentColor;
+    }
+
+    #${ROOT_ID} .lm-tag-input {
+      flex: 1;
+      min-width: 80px;
+      max-width: 120px;
+      padding: 4px 8px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.06);
+      color: #f4efe6;
+      font: inherit;
+      font-size: 12px;
+      outline: none;
+    }
+
+    #${ROOT_ID} .lm-tag-input:focus {
+      border-color: rgba(242, 187, 105, 0.5);
+    }
+
+    #${ROOT_ID} .lm-tag-input::placeholder {
+      color: rgba(244, 239, 230, 0.42);
     }
 
     #${ROOT_ID} .lm-toast,

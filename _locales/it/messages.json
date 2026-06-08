@@ -665,5 +665,20 @@
   },
   "auth_complete_error": {
     "message": "Impossibile completare l'accesso."
+  },
+  "tags_label": {
+    "message": "Tag"
+  },
+  "add_tag": {
+    "message": "Aggiungi tag"
+  },
+  "remove_tag": {
+    "message": "Rimuovi tag"
+  },
+  "tag_placeholder": {
+    "message": "Aggiungi tag e premi Invio"
+  },
+  "filter_by_tags": {
+    "message": "Filtra per tag"
   }
 }

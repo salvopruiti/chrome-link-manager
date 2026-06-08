@@ -97,7 +97,7 @@ export async function fetchRemoteLinks(session, revisionAfter = null) {
   while (true) {
     const query = new URLSearchParams({
       select:
-        "id,url,normalized_url,title,page_url,created_at,updated_at,revision_id,deleted_at,is_seen,seen_at,is_favorite,favorited_at",
+        "id,url,normalized_url,title,page_url,created_at,updated_at,revision_id,deleted_at,is_seen,seen_at,is_favorite,favorited_at,tags",
       order: "revision_id.asc",
       limit: String(SUPABASE_PAGE_SIZE),
       offset: String(offset),
@@ -143,6 +143,7 @@ export async function upsertLinksToSupabase(entries, session) {
     seen_at: entry.seenAt || null,
     is_favorite: Boolean(entry.isFavorite),
     favorited_at: entry.favoritedAt || null,
+    tags: Array.isArray(entry.tags) ? entry.tags : [],
     deleted_at: null,
   }));
 

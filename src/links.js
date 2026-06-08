@@ -2,6 +2,90 @@ function t(key, substitutions) {
   return chrome.i18n.getMessage(key, substitutions) || key;
 }
 
+function createArchiveTagInput() {
+  function getTags() {
+    return [...archiveTagTags];
+  }
+
+  function setTags(tags) {
+    archiveTagTags = Array.isArray(tags) ? tags.filter(Boolean) : [];
+    renderChips();
+  }
+
+  function renderChips() {
+    archiveTagChips.innerHTML = archiveTagTags
+      .map(
+        (tag) =>
+          `<span class="tag-chip">${escapeHtml(tag)}<button type="button" data-tag-remove="${escapeHtml(tag)}" aria-label="${t("remove_tag")}"><svg viewBox="0 0 24 24"><path d="M18.3 5.71 16.59 4 12 8.59 7.41 4 5.71 5.71 10.59 10.6 5.7 15.49l1.41 1.41L12 12l4.89 4.9 1.41-1.41-4.89-4.89 4.89-4.89Z"/></svg></button></span>`,
+      )
+      .join("")
+  }
+
+  archiveTagField.addEventListener("input", () => {
+    const value = archiveTagField.value.trim()
+    if (!value) {
+      archiveTagSuggestions.classList.remove("is-visible")
+      return
+    }
+    const existing = new Set(archiveTagTags.map((t) => t.toLowerCase()))
+    const allTags = new Set(
+      archiveState.entries.flatMap((e) => (Array.isArray(e.tags) ? e.tags : [])),
+    )
+    const suggestions = [...allTags].filter(
+      (tag) =>
+        tag.toLowerCase().includes(value.toLowerCase()) &&
+        !existing.has(tag.toLowerCase()),
+    )
+    archiveTagSuggestions.innerHTML = suggestions
+      .map((s) => `<div class="tag-suggestions-item" data-tag-suggestion="${escapeHtml(s)}">${escapeHtml(s)}</div>`)
+      .join("")
+    archiveTagSuggestions.classList.toggle("is-visible", suggestions.length > 0)
+  })
+
+  archiveTagField.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === ",") {
+      event.preventDefault()
+      const value = archiveTagField.value.trim().replace(/,/g, "")
+      if (value && !archiveTagTags.map((t) => t.toLowerCase()).includes(value.toLowerCase())) {
+        archiveTagTags.push(value)
+        renderChips()
+      }
+      archiveTagField.value = ""
+      archiveTagSuggestions.classList.remove("is-visible")
+    }
+  })
+
+  archiveTagSuggestions.addEventListener("click", (event) => {
+    const item = event.target.closest("[data-tag-suggestion]")
+    if (!item) return
+    const tag = item.getAttribute("data-tag-suggestion")
+    if (tag && !archiveTagTags.map((t) => t.toLowerCase()).includes(tag.toLowerCase())) {
+      archiveTagTags.push(tag)
+      renderChips()
+    }
+    archiveTagField.value = ""
+    archiveTagSuggestions.classList.remove("is-visible")
+    archiveTagField.focus()
+  })
+
+  archiveTagChips.addEventListener("click", (event) => {
+    const btn = event.target.closest("[data-tag-remove]")
+    if (!btn) return
+    const tag = btn.getAttribute("data-tag-remove")
+    archiveTagTags = archiveTagTags.filter((t) => t !== tag)
+    renderChips()
+    archiveTagField.focus()
+  })
+
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest("#archiveTagInput")) {
+      archiveTagSuggestions.classList.remove("is-visible")
+    }
+  })
+
+  return { getTags, setTags }
+}
+
 const archiveSearchInput = document.getElementById("archiveSearch");
 const archiveUrlInput = document.getElementById("archiveUrl");
 const archiveTitleInput = document.getElementById("archiveTitle");
@@ -31,12 +115,20 @@ const nextPageButton = document.getElementById("nextPageButton");
 const firstPageButton = document.getElementById("firstPageButton");
 const lastPageButton = document.getElementById("lastPageButton");
 const modalStatusNode = document.getElementById("modalStatus");
+const archiveTagField = document.getElementById("archiveTagField");
+const archiveTagChips = document.getElementById("archiveTagChips");
+const archiveTagSuggestions = document.getElementById("archiveTagSuggestions");
+const archiveTagSearch = document.getElementById("archiveTagSearch");
+
+let archiveTagTags = [];
+const archiveTagInput = createArchiveTagInput();
 
 const ITEMS_PER_PAGE = 100;
 
 const archiveState = {
   entries: [],
   searchQuery: "",
+  tagQuery: "",
   editingId: null,
   currentPage: 1,
   totalPages: 1,
@@ -48,6 +140,7 @@ const archiveState = {
 };
 
 archiveSearchInput.addEventListener("input", handleArchiveSearch);
+archiveTagSearch.addEventListener("input", handleArchiveTagSearch);
 archiveSaveButton.addEventListener("click", submitArchiveForm);
 archiveCancelButton.addEventListener("click", handleArchiveCancel);
 archiveResetButton.addEventListener("click", openCreateModal);
@@ -76,11 +169,13 @@ document.addEventListener("visibilitychange", () => {
 
 readQueryParams();
 archiveSearchInput.value = archiveState.searchQuery;
+archiveTagSearch.value = archiveState.tagQuery;
 
 void init();
 
 async function init() {
   try {
+    applyStaticI18n();
     await refreshState();
     resetArchiveForm();
     closeArchiveModal();
@@ -92,6 +187,7 @@ async function init() {
 function readQueryParams() {
   const params = new URLSearchParams(location.search);
   archiveState.searchQuery = params.get("q") || "";
+  archiveState.tagQuery = params.get("tag") || "";
   const page = parseInt(params.get("page"), 10);
   if (page > 0) archiveState.currentPage = page;
   if (params.get("unseen") === "1") {
@@ -108,6 +204,7 @@ function readQueryParams() {
 function writeQueryParams() {
   const p = new URLSearchParams();
   if (archiveState.searchQuery.trim()) p.set("q", archiveState.searchQuery.trim());
+  if (archiveState.tagQuery.trim()) p.set("tag", archiveState.tagQuery.trim());
   if (archiveState.currentPage > 1) p.set("page", String(archiveState.currentPage));
   if (archiveState.filters.unseenOnly) p.set("unseen", "1");
   if (archiveState.filters.seenOnly) p.set("seen", "1");
@@ -129,8 +226,18 @@ function handleArchiveSearch(event) {
   renderArchiveList();
 }
 
+function handleArchiveTagSearch(event) {
+  archiveState.tagQuery = event.target.value || "";
+  archiveState.currentPage = 1;
+  renderArchiveList();
+}
+
 function getFilteredArchiveEntries() {
   const normalizedQuery = archiveState.searchQuery.trim().toLowerCase();
+  const rawTagQuery = archiveState.tagQuery.trim();
+  const tagFilters = rawTagQuery
+    ? rawTagQuery.split(",").map((t) => t.trim().toLowerCase()).filter(Boolean)
+    : [];
 
   return archiveState.entries.filter(
     (entry) =>
@@ -138,7 +245,12 @@ function getFilteredArchiveEntries() {
       (!normalizedQuery ||
         [entry.title, entry.url, entry.pageUrl]
           .filter(Boolean)
-          .some((value) => value.toLowerCase().includes(normalizedQuery))),
+          .some((field) => field.toLowerCase().includes(normalizedQuery))) &&
+      (!tagFilters.length ||
+        (Array.isArray(entry.tags) &&
+          tagFilters.every((filter) =>
+            entry.tags.some((tag) => tag.toLowerCase().includes(filter)),
+          ))),
   );
 }
 
@@ -194,6 +306,12 @@ function renderTableRow(entry) {
 
   if (entry.isFavorite) {
     badges.push(`<span class="badge favorite">${t("favorite_badge")}</span>`);
+  }
+
+  if (Array.isArray(entry.tags) && entry.tags.length) {
+    entry.tags.forEach((tag) => {
+      badges.push(`<span class="badge tag">${escapeHtml(tag)}</span>`)
+    })
   }
 
   return `
@@ -268,6 +386,7 @@ function populateArchiveForm(entry) {
   archivePageUrlInput.value = entry.pageUrl || "";
   archiveIsSeenInput.checked = Boolean(entry.isSeen);
   archiveIsFavoriteInput.checked = Boolean(entry.isFavorite);
+  archiveTagInput.setTags(entry.tags);
   archiveSaveButton.textContent = t("save_changes");
   openArchiveModal();
   archiveFormMetaNode.textContent = t("edit_link_title");
@@ -288,6 +407,7 @@ function resetArchiveForm() {
   archivePageUrlInput.value = "";
   archiveIsSeenInput.checked = false;
   archiveIsFavoriteInput.checked = false;
+  archiveTagInput.setTags([]);
   archiveSaveButton.textContent = t("add_link");
   archiveFormMetaNode.textContent = t("add_manually_hint");
 }
@@ -329,6 +449,7 @@ async function submitArchiveForm() {
     pageUrl: archivePageUrlInput.value.trim(),
     isSeen: archiveIsSeenInput.checked,
     isFavorite: archiveIsFavoriteInput.checked,
+    tags: archiveTagInput.getTags(),
   };
 
   if (!payload.url) {
@@ -621,6 +742,29 @@ function setButtonBusy(button, busy, busyLabel = "") {
 
   button.disabled = busy;
   button.textContent = busy ? busyLabel : button.dataset.defaultLabel;
+}
+
+function applyStaticI18n() {
+  const uiLang = chrome.i18n.getUILanguage();
+  document.documentElement.lang = uiLang?.startsWith("it") ? "it" : "en";
+
+  document.querySelectorAll("[data-i18n]").forEach((node) => {
+    const key = node.getAttribute("data-i18n");
+    if (!key) return;
+    node.textContent = t(key);
+  });
+
+  document.querySelectorAll("[data-i18n-placeholder]").forEach((node) => {
+    const key = node.getAttribute("data-i18n-placeholder");
+    if (!key) return;
+    node.setAttribute("placeholder", t(key));
+  });
+
+  document.querySelectorAll("[data-i18n-aria-label]").forEach((node) => {
+    const key = node.getAttribute("data-i18n-aria-label");
+    if (!key) return;
+    node.setAttribute("aria-label", t(key));
+  });
 }
 
 function escapeHtml(value) {

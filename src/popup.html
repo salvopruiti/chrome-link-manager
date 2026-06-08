@@ -25,7 +25,7 @@
 
       body {
         margin: 0;
-        width: 380px;
+        width: 520px;
         height: 520px;
         overflow: hidden;
         font: 14px/1.4 "Segoe UI", sans-serif;
@@ -33,7 +33,7 @@
         background: linear-gradient(180deg, var(--bg-top) 0%, var(--bg-bottom) 100%);
       }
 
-      html { width: 380px; height: 520px; }
+      html { width: 520px; height: 520px; }
 
       .shell {
         display: grid;
@@ -430,6 +430,82 @@
         from { transform: rotate(0deg); }
         to { transform: rotate(360deg); }
       }
+
+      .tag-input {
+        position: relative;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 8px;
+        background: rgba(255,255,255,0.06);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 6px;
+        min-height: 36px;
+      }
+      .tag-input:focus-within {
+        border-color: rgba(242, 187, 105, 0.5);
+      }
+      .tag-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+      }
+      .tag-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        padding: 2px 8px;
+        font-size: 12px;
+        background: rgba(255,255,255,0.12);
+        border-radius: 4px;
+      }
+      .tag-chip button {
+        all: unset;
+        cursor: pointer;
+        width: 14px;
+        height: 14px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0.6;
+        border-radius: 50%;
+      }
+      .tag-chip button:hover { opacity: 1; background: rgba(255,255,255,0.15); }
+      .tag-chip button svg { width: 12px; height: 12px; fill: currentColor; }
+      .tag-input input {
+        flex: 1;
+        min-width: 80px;
+        border: none;
+        outline: none;
+        background: none;
+        color: var(--ink);
+        font: inherit;
+        font-size: 13px;
+        padding: 2px 0;
+      }
+      .tag-suggestions {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        z-index: 10;
+        background: #1a2744;
+        border: 1px solid rgba(255,255,255,0.12);
+        border-radius: 0 0 6px 6px;
+        max-height: 140px;
+        overflow-y: auto;
+        display: none;
+      }
+      .tag-suggestions.is-visible { display: block; }
+      .tag-suggestions-item {
+        padding: 6px 10px;
+        font-size: 13px;
+        cursor: pointer;
+      }
+      .tag-suggestions-item:hover {
+        background: rgba(255,255,255,0.08);
+      }
     </style>
   </head>
   <body>
@@ -462,6 +538,12 @@
               <input id="pageUrlInput" type="text" placeholder="https://">
               <label for="pagePageUrlInput">Pagina origine</label>
               <input id="pagePageUrlInput" type="text" placeholder="https://">
+              <label data-i18n="tags_label">Tags</label>
+              <div class="tag-input" id="pageTagInput">
+                <div class="tag-chips" id="pageTagChips"></div>
+                <input type="text" id="pageTagField" placeholder="Aggiungi tag e premi Invio" autocomplete="off" data-i18n-placeholder="tag_placeholder">
+                <div class="tag-suggestions" id="pageTagSuggestions"></div>
+              </div>
               <div class="page-flags">
                 <label class="flag-pill"><input id="pageIsSeen" type="checkbox"> Visto</label>
                 <label class="flag-pill"><input id="pageIsFavorite" type="checkbox"> Favorito</label>

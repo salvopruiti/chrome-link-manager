@@ -721,6 +721,7 @@ async function debugSyncDiff() {
       pageUrl: entry.pageUrl || null,
       isSeen: Boolean(entry.isSeen),
       isFavorite: Boolean(entry.isFavorite),
+      tags: Array.isArray(entry.tags) ? entry.tags : [],
       updatedAt: entry.updatedAt || null,
       revisionId: entry.revisionId || null,
       pendingUpsert: Boolean(pendingSync.upserts?.[entry.normalizedUrl]),
@@ -738,6 +739,7 @@ async function debugSyncDiff() {
       pageUrl: remoteLink.page_url || null,
       isSeen: Boolean(remoteLink.is_seen),
       isFavorite: Boolean(remoteLink.is_favorite),
+      tags: remoteLink.tags || [],
       updatedAt: remoteLink.updated_at || remoteLink.created_at || null,
       revisionId: normalizeRevisionId(remoteLink.revision_id),
     }));
@@ -763,6 +765,12 @@ async function debugSyncDiff() {
       if (Boolean(entry.isFavorite) !== Boolean(remoteLink.is_favorite)) {
         differences.push("isFavorite");
       }
+      if (
+        JSON.stringify(entry.tags || []) !==
+        JSON.stringify(remoteLink.tags || [])
+      ) {
+        differences.push("tags");
+      }
 
       if (!differences.length) {
         return null;
@@ -778,6 +786,7 @@ async function debugSyncDiff() {
           pageUrl: entry.pageUrl || null,
           isSeen: Boolean(entry.isSeen),
           isFavorite: Boolean(entry.isFavorite),
+          tags: Array.isArray(entry.tags) ? entry.tags : [],
           updatedAt: entry.updatedAt || null,
           revisionId: entry.revisionId || null,
         },
@@ -788,6 +797,7 @@ async function debugSyncDiff() {
           pageUrl: remoteLink.page_url || null,
           isSeen: Boolean(remoteLink.is_seen),
           isFavorite: Boolean(remoteLink.is_favorite),
+          tags: remoteLink.tags || [],
           updatedAt: remoteLink.updated_at || remoteLink.created_at || null,
           revisionId: normalizeRevisionId(remoteLink.revision_id),
         },
@@ -972,6 +982,7 @@ function mergeEntriesForSync(localEntries, remoteLinks) {
       seenAt: remoteLink.seen_at || null,
       isFavorite: Boolean(remoteLink.is_favorite),
       favoritedAt: remoteLink.favorited_at || null,
+      tags: remoteLink.tags || [],
     });
   }
 
@@ -1002,6 +1013,7 @@ function normalizeEntries(entries) {
       (entry.isFavorite
         ? entry.updatedAt || entry.createdAt || new Date().toISOString()
         : null),
+    tags: Array.isArray(entry.tags) ? entry.tags : [],
   }));
 }
 
@@ -1018,6 +1030,7 @@ function serializePendingUpsert(entry) {
     seenAt: entry.seenAt || null,
     isFavorite: Boolean(entry.isFavorite),
     favoritedAt: entry.favoritedAt || null,
+    tags: Array.isArray(entry.tags) ? entry.tags : [],
   };
 }
 
@@ -1035,6 +1048,7 @@ function toRemoteUpsertEntry(entry) {
     seenAt: entry.seenAt || null,
     isFavorite: Boolean(entry.isFavorite),
     favoritedAt: entry.favoritedAt || null,
+    tags: Array.isArray(entry.tags) ? entry.tags : [],
   };
 }
 
@@ -1053,6 +1067,7 @@ function createEntryFromLink(link, normalizedUrl) {
       seenAt: link.seenAt || null,
       isFavorite: Boolean(link.isFavorite),
       favoritedAt: link.favoritedAt || null,
+      tags: Array.isArray(link.tags) ? link.tags : [],
     },
   ])[0];
 }
@@ -1078,6 +1093,15 @@ function mergeEntryWithLink(existingEntry, link) {
       ...nextEntry,
       isFavorite: true,
       favoritedAt: link.favoritedAt || now,
+      updatedAt: now,
+    };
+    changed = true;
+  }
+
+  if (Array.isArray(link.tags)) {
+    nextEntry = {
+      ...nextEntry,
+      tags: link.tags,
       updatedAt: now,
     };
     changed = true;
@@ -1229,6 +1253,7 @@ async function saveLink(payload, sender) {
       favoritedAt: payload?.isFavorite
         ? payload?.favoritedAt || new Date().toISOString()
         : null,
+      tags: Array.isArray(payload?.tags) ? payload.tags : [],
     },
   ]);
 }
@@ -1285,6 +1310,7 @@ async function updateLink(payload) {
           ? currentEntry.favoritedAt || now
           : now
         : null,
+      tags: Array.isArray(payload?.tags) ? payload.tags : [],
       updatedAt: now,
     },
   ])[0];

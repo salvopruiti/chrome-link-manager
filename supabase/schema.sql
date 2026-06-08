@@ -69,6 +69,12 @@ create index if not exists links_user_id_revision_id_idx
 create index if not exists links_user_id_deleted_at_idx
   on public.links (user_id, deleted_at);
 
+alter table public.links
+  add column if not exists tags text[] not null default '{}';
+  
+create index if not exists links_user_id_tags_idx
+  on public.links using gin (tags);
+
 create trigger set_links_updated_at
 before update on public.links
 for each row
