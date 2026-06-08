@@ -1,3 +1,10 @@
+# [1.5.0](https://github.com/salvopruiti/chrome-link-manager/compare/v1.4.0...v1.5.0) (2026-06-08)
+
+
+### Features
+
+* refactor popup with two-mode view, list view quick action to switch to page detail ([b2192d3](https://github.com/salvopruiti/chrome-link-manager/commit/b2192d38527ff425b33ad3fdda6244122412aee5))
+
 # [1.4.0](https://github.com/salvopruiti/chrome-link-manager/compare/v1.3.0...v1.4.0) (2026-06-07)
 
 
