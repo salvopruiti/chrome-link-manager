@@ -1253,7 +1253,9 @@ async function saveLink(payload, sender) {
       favoritedAt: payload?.isFavorite
         ? payload?.favoritedAt || new Date().toISOString()
         : null,
-      tags: Array.isArray(payload?.tags) ? payload.tags : [],
+      ...(payload?.tags !== undefined
+        ? { tags: Array.isArray(payload.tags) ? payload.tags : [] }
+        : {}),
     },
   ]);
 }
