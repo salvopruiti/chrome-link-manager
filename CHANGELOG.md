@@ -1,3 +1,11 @@
+# [1.6.0](https://github.com/salvopruiti/chrome-link-manager/compare/v1.5.0...v1.6.0) (2026-06-10)
+
+
+### Features
+
+* add extension icons for Chrome Web Store ([f4faff2](https://github.com/salvopruiti/chrome-link-manager/commit/f4faff24f1c9cb1fcc1eb1a3951fa0e06fdb1b56))
+* add pagination to popup list view ([7416743](https://github.com/salvopruiti/chrome-link-manager/commit/74167431a6992693e161264f177ac948ac0be461))
+
 # [1.5.0](https://github.com/salvopruiti/chrome-link-manager/compare/v1.4.0...v1.5.0) (2026-06-08)
 
 
