@@ -330,6 +330,41 @@
         align-content: start;
       }
 
+      .pagination-bar {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        padding: 10px 0 4px;
+        border-top: 1px solid var(--line);
+        margin-top: 4px;
+        flex-shrink: 0;
+      }
+
+      .pagination-button {
+        all: unset;
+        cursor: pointer;
+        font-size: 16px;
+        padding: 4px 10px;
+        border-radius: 4px;
+        color: var(--muted);
+      }
+
+      .pagination-button:not([disabled]):hover {
+        background: rgba(255,255,255,0.08);
+        color: var(--ink);
+      }
+
+      .pagination-button[disabled] {
+        opacity: 0.3;
+        pointer-events: none;
+      }
+
+      .page-info {
+        font-size: 12px;
+        color: var(--muted);
+      }
+
       .entry,
       .empty {
         display: flex;
@@ -568,6 +603,11 @@
             <button id="filterFavoriteButton" class="filter-chip" type="button" data-i18n="filter_favorites">Favoriti</button>
           </div>
           <ul id="results" class="list"></ul>
+          <div id="paginationBar" class="pagination-bar">
+            <button id="prevListPageButton" type="button" class="pagination-button" disabled>&lsaquo;</button>
+            <span id="pageInfo" class="page-info"></span>
+            <button id="nextListPageButton" type="button" class="pagination-button" disabled>&rsaquo;</button>
+          </div>
         </div>
       </section>
 

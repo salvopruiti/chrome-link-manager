@@ -20,6 +20,9 @@ const pageRemoveButton = document.getElementById("pageRemoveButton");
 const backToListButton = document.getElementById("backToListButton");
 const headerBrand = document.getElementById("headerBrand");
 const headerSearch = document.getElementById("headerSearch");
+const prevListPageButton = document.getElementById("prevListPageButton");
+const nextListPageButton = document.getElementById("nextListPageButton");
+const pageInfoNode = document.getElementById("pageInfo");
 const pageTagField = document.getElementById("pageTagField");
 const pageTagChips = document.getElementById("pageTagChips");
 const pageTagSuggestions = document.getElementById("pageTagSuggestions");
@@ -38,6 +41,8 @@ let filterSeenOnly = false;
 let filterFavoriteOnly = false;
 let pendingAction = null;
 let userExplicitListView = false;
+let popupListPage = 1;
+const POPUP_ITEMS_PER_PAGE = 20;
 
 function t(key, substitutions) {
   return chrome.i18n.getMessage(key, substitutions) || key;
@@ -135,20 +140,38 @@ init();
 
 searchInput.addEventListener("input", (event) => {
   searchQuery = event.target.value;
+  popupListPage = 1;
   render();
 });
 
 filterSeenButton.addEventListener("click", () => {
   filterSeenOnly = !filterSeenOnly;
+  popupListPage = 1;
   render();
 });
 
 filterFavoriteButton.addEventListener("click", () => {
   filterFavoriteOnly = !filterFavoriteOnly;
+  popupListPage = 1;
   render();
 });
 
 openArchiveButton.addEventListener("click", openArchivePage);
+
+prevListPageButton.addEventListener("click", () => {
+  if (popupListPage > 1) {
+    popupListPage--;
+    render();
+  }
+});
+
+nextListPageButton.addEventListener("click", () => {
+  const totalPages = getTotalPages();
+  if (popupListPage < totalPages) {
+    popupListPage++;
+    render();
+  }
+});
 
 /* ── Page view events ── */
 
@@ -339,7 +362,11 @@ function render() {
   renderSyncSummary();
   renderFilterState();
 
-  const filteredEntries = filterEntries(searchQuery, popupState.entries);
+  const allFiltered = filterEntries(searchQuery, popupState.entries);
+  const totalPages = Math.max(1, Math.ceil(allFiltered.length / POPUP_ITEMS_PER_PAGE));
+  popupListPage = Math.min(popupListPage, totalPages);
+  const pageStart = (popupListPage - 1) * POPUP_ITEMS_PER_PAGE;
+  const filteredEntries = allFiltered.slice(pageStart, pageStart + POPUP_ITEMS_PER_PAGE);
   const hasActiveSearch = Boolean(
     searchQuery.trim() || filterSeenOnly || filterFavoriteOnly,
   );
@@ -431,6 +458,13 @@ function render() {
       }, id);
     });
   });
+
+  if (listViewNode.classList.contains("is-visible")) {
+    const totalPages = Math.max(1, Math.ceil(allFiltered.length / POPUP_ITEMS_PER_PAGE));
+    prevListPageButton.disabled = popupListPage <= 1;
+    nextListPageButton.disabled = popupListPage >= totalPages;
+    pageInfoNode.textContent = `${popupListPage} / ${totalPages}`;
+  }
 }
 
 function renderQuickActions() {
@@ -808,16 +842,19 @@ function formatDateTime(value) {
 
 function filterEntries(query, entries) {
   const normalizedQuery = query.trim().toLowerCase();
-  return entries
-    .filter((entry) => {
-      if (filterSeenOnly && entry.isSeen) return false;
-      if (filterFavoriteOnly && !entry.isFavorite) return false;
-      if (!normalizedQuery) return true;
-      return [entry.title, entry.url, entry.pageUrl]
-        .filter(Boolean)
-        .some((value) => value.toLowerCase().includes(normalizedQuery));
-    })
-    .slice(0, 40);
+  return entries.filter((entry) => {
+    if (filterSeenOnly && entry.isSeen) return false;
+    if (filterFavoriteOnly && !entry.isFavorite) return false;
+    if (!normalizedQuery) return true;
+    return [entry.title, entry.url, entry.pageUrl]
+      .filter(Boolean)
+      .some((value) => value.toLowerCase().includes(normalizedQuery));
+  });
+}
+
+function getTotalPages() {
+  const total = filterEntries(searchQuery, popupState.entries).length;
+  return Math.max(1, Math.ceil(total / POPUP_ITEMS_PER_PAGE));
 }
 
 function iconMarkup(name) {
