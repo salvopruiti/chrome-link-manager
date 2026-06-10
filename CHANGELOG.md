@@ -1,3 +1,10 @@
+## [1.6.1](https://github.com/salvopruiti/chrome-link-manager/compare/v1.6.0...v1.6.1) (2026-06-10)
+
+
+### Bug Fixes
+
+* update popup dimensions to improve layout ([db5d224](https://github.com/salvopruiti/chrome-link-manager/commit/db5d2249be5d1283da7f58781f85006bfa72bb37))
+
 # [1.6.0](https://github.com/salvopruiti/chrome-link-manager/compare/v1.5.0...v1.6.0) (2026-06-10)
 
 
