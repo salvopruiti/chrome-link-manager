@@ -1,0 +1,203 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 800">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#18243f"/>
+      <stop offset="100%" style="stop-color:#0b1324"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#d9771f"/>
+      <stop offset="100%" style="stop-color:#f2bb69"/>
+    </linearGradient>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="4" stdDeviation="16" flood-color="#000" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1280" height="800" fill="url(#bg)"/>
+
+  <!-- Header section -->
+  <rect x="0" y="0" width="1280" height="180" fill="rgba(255,255,255,0.02)"/>
+
+  <!-- Title -->
+  <text x="60" y="56" font-family="Segoe UI, sans-serif" font-size="28" font-weight="700" fill="#f4efe6">⚡ Archivio Link</text>
+  <text x="60" y="86" font-family="Segoe UI, sans-serif" font-size="14" fill="rgba(244,239,230,0.62)">Consulta tutti i link salvati, cercali rapidamente e gestiscili manualmente.</text>
+
+  <!-- Header action buttons -->
+  <rect x="980" y="30" width="130" height="40" rx="8" fill="url(#accent)"/>
+  <text x="1000" y="56" font-family="Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#24170b">+ Nuovo link</text>
+
+  <rect x="1120" y="30" width="100" height="40" rx="8" fill="rgba(255,255,255,0.08)"/>
+  <text x="1136" y="56" font-family="Segoe UI, sans-serif" font-size="13" fill="#f4efe6">⚙ Impostazioni</text>
+
+  <rect x="1036" y="90" width="184" height="40" rx="8" fill="rgba(255,255,255,0.08)"/>
+  <text x="1052" y="116" font-family="Segoe UI, sans-serif" font-size="13" fill="#f4efe6">↻ Aggiorna</text>
+
+  <!-- Search row -->
+  <rect x="60" y="120" width="480" height="42" rx="8" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+  <text x="76" y="146" font-family="Segoe UI, sans-serif" font-size="14" fill="rgba(244,239,230,0.42)">🔍 Cerca per titolo, URL o pagina di origine</text>
+
+  <!-- Tag search -->
+  <rect x="556" y="120" width="240" height="42" rx="8" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+  <text x="572" y="146" font-family="Segoe UI, sans-serif" font-size="14" fill="rgba(244,239,230,0.42)">🏷️ guide, web-dev</text>
+
+  <!-- Filter chips -->
+  <rect x="60" y="180" width="100" height="34" rx="8" fill="rgba(242,187,105,0.2)" stroke="rgba(242,187,105,0.3)" stroke-width="1"/>
+  <text x="82" y="202" font-family="Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#ffd68b">Non visti</text>
+  <rect x="168" y="180" width="80" height="34" rx="8" fill="rgba(255,255,255,0.06)"/>
+  <text x="188" y="202" font-family="Segoe UI, sans-serif" font-size="13" fill="rgba(244,239,230,0.72)">Visti</text>
+  <rect x="256" y="180" width="100" height="34" rx="8" fill="rgba(255,255,255,0.06)"/>
+  <text x="276" y="202" font-family="Segoe UI, sans-serif" font-size="13" fill="rgba(244,239,230,0.72)">Favoriti</text>
+
+  <!-- Table header -->
+  <g>
+    <rect x="60" y="230" width="1160" height="40" rx="8" fill="rgba(255,255,255,0.04)"/>
+    <text x="80" y="256" font-family="Segoe UI, sans-serif" font-size="12" font-weight="700" fill="rgba(244,239,230,0.6)">TITOLO</text>
+    <text x="720" y="256" font-family="Segoe UI, sans-serif" font-size="12" font-weight="700" fill="rgba(244,239,230,0.6)">DATA</text>
+    <text x="880" y="256" font-family="Segoe UI, sans-serif" font-size="12" font-weight="700" fill="rgba(244,239,230,0.6)">AZIONI</text>
+  </g>
+
+  <!-- Row 1 -->
+  <g>
+    <rect x="60" y="274" width="1160" height="52" rx="4" fill="rgba(255,255,255,0.02)"/>
+    <text x="80" y="296" font-family="Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#f4efe6">Guida React 2026 — Framework moderni a confronto</text>
+    <text x="80" y="314" font-family="Segoe UI, sans-serif" font-size="11" fill="rgba(244,239,230,0.5)">https://example.com/react-guida-2026</text>
+    <!-- Tags -->
+    <rect x="584" y="280" width="44" height="22" rx="4" fill="rgba(110,160,255,0.18)"/>
+    <text x="594" y="295" font-family="Segoe UI, sans-serif" font-size="10" fill="#b3d0ff">guide</text>
+    <rect x="634" y="280" width="58" height="22" rx="4" fill="rgba(110,160,255,0.18)"/>
+    <text x="644" y="295" font-family="Segoe UI, sans-serif" font-size="10" fill="#b3d0ff">web-dev</text>
+    <!-- Date -->
+    <text x="720" y="306" font-family="Segoe UI, sans-serif" font-size="12" fill="rgba(244,239,230,0.6)">10 giu 2026</text>
+    <!-- Badges -->
+    <rect x="784" y="294" width="42" height="20" rx="10" fill="rgba(84,214,154,0.18)"/>
+    <text x="793" y="308" font-family="Segoe UI, sans-serif" font-size="10" font-weight="700" fill="#b9f6da">Visto</text>
+    <rect x="830" y="294" width="48" height="20" rx="10" fill="rgba(242,187,105,0.18)"/>
+    <text x="840" y="308" font-family="Segoe UI, sans-serif" font-size="10" font-weight="700" fill="#ffd68b">Favorito</text>
+    <!-- Actions -->
+    <rect x="900" y="284" width="32" height="28" rx="6" fill="rgba(255,255,255,0.06)"/>
+    <rect x="936" y="284" width="32" height="28" rx="6" fill="rgba(255,255,255,0.06)"/>
+    <rect x="972" y="284" width="32" height="28" rx="6" fill="rgba(255,255,255,0.06)"/>
+    <rect x="1008" y="284" width="32" height="28" rx="6" fill="rgba(255,255,255,0.06)"/>
+    <rect x="1044" y="284" width="32" height="28" rx="6" fill="rgba(225,100,100,0.15)"/>
+  </g>
+
+  <!-- Row 2 -->
+  <g>
+    <rect x="60" y="330" width="1160" height="52" rx="4" fill="rgba(255,255,255,0.02)"/>
+    <text x="80" y="352" font-family="Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#f4efe6">TypeScript 5.x — Tutte le novità e guida alla migrazione</text>
+    <text x="80" y="370" font-family="Segoe UI, sans-serif" font-size="11" fill="rgba(244,239,230,0.5)">https://example.com/typescript-5-novita</text>
+    <rect x="584" y="336" width="58" height="22" rx="4" fill="rgba(110,160,255,0.18)"/>
+    <text x="594" y="351" font-family="Segoe UI, sans-serif" font-size="10" fill="#b3d0ff">web-dev</text>
+    <text x="720" y="362" font-family="Segoe UI, sans-serif" font-size="12" fill="rgba(244,239,230,0.6)">8 giu 2026</text>
+    <rect x="784" y="350" width="42" height="20" rx="10" fill="rgba(84,214,154,0.18)"/>
+    <text x="793" y="364" font-family="Segoe UI, sans-serif" font-size="10" font-weight="700" fill="#b9f6da">Visto</text>
+    <rect x="900" y="340" width="32" height="28" rx="6" fill="rgba(255,255,255,0.06)"/>
+    <rect x="936" y="340" width="32" height="28" rx="6" fill="rgba(255,255,255,0.06)"/>
+    <rect x="972" y="340" width="32" height="28" rx="6" fill="rgba(255,255,255,0.06)"/>
+    <rect x="1008" y="340" width="32" height="28" rx="6" fill="rgba(255,255,255,0.06)"/>
+    <rect x="1044" y="340" width="32" height="28" rx="6" fill="rgba(225,100,100,0.15)"/>
+  </g>
+
+  <!-- Row 3 -->
+  <g>
+    <rect x="60" y="386" width="1160" height="52" rx="4" fill="rgba(255,255,255,0.02)"/>
+    <text x="80" y="408" font-family="Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#f4efe6">CSS Grid vs Flexbox — Guida comparativa con esempi pratici</text>
+    <text x="80" y="426" font-family="Segoe UI, sans-serif" font-size="11" fill="rgba(244,239,230,0.5)">https://example.com/css-grid-flexbox</text>
+    <rect x="584" y="392" width="58" height="22" rx="4" fill="rgba(110,160,255,0.18)"/>
+    <text x="594" y="407" font-family="Segoe UI, sans-serif" font-size="10" fill="#b3d0ff">web-dev</text>
+    <rect x="648" y="392" width="44" height="22" rx="4" fill="rgba(110,160,255,0.18)"/>
+    <text x="658" y="407" font-family="Segoe UI, sans-serif" font-size="10" fill="#b3d0ff">css</text>
+    <text x="720" y="418" font-family="Segoe UI, sans-serif" font-size="12" fill="rgba(244,239,230,0.6)">5 giu 2026</text>
+    <rect x="900" y="396" width="32" height="28" rx="6" fill="rgba(255,255,255,0.06)"/>
+    <rect x="936" y="396" width="32" height="28" rx="6" fill="rgba(255,255,255,0.06)"/>
+    <rect x="972" y="396" width="32" height="28" rx="6" fill="rgba(255,255,255,0.06)"/>
+    <rect x="1008" y="396" width="32" height="28" rx="6" fill="rgba(255,255,255,0.06)"/>
+    <rect x="1044" y="396" width="32" height="28" rx="6" fill="rgba(255,255,255,0.06)"/>
+  </g>
+
+  <!-- Row 4 -->
+  <g>
+    <rect x="60" y="442" width="1160" height="52" rx="4" fill="rgba(255,255,255,0.02)"/>
+    <text x="80" y="464" font-family="Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#f4efe6">Node.js 22 — Cosa c'è di nuovo e come aggiornare i progetti</text>
+    <text x="80" y="482" font-family="Segoe UI, sans-serif" font-size="11" fill="rgba(244,239,230,0.5)">https://example.com/nodejs-22-novita</text>
+    <rect x="584" y="448" width="58" height="22" rx="4" fill="rgba(110,160,255,0.18)"/>
+    <text x="594" y="463" font-family="Segoe UI, sans-serif" font-size="10" fill="#b3d0ff">web-dev</text>
+    <rect x="648" y="448" width="44" height="22" rx="4" fill="rgba(110,160,255,0.18)"/>
+    <text x="658" y="463" font-family="Segoe UI, sans-serif" font-size="10" fill="#b3d0ff">node</text>
+    <text x="720" y="474" font-family="Segoe UI, sans-serif" font-size="12" fill="rgba(244,239,230,0.6)">3 giu 2026</text>
+    <rect x="784" y="462" width="42" height="20" rx="10" fill="rgba(84,214,154,0.18)"/>
+    <text x="793" y="476" font-family="Segoe UI, sans-serif" font-size="10" font-weight="700" fill="#b9f6da">Visto</text>
+    <rect x="900" y="452" width="32" height="28" rx="6" fill="rgba(255,255,255,0.06)"/>
+    <rect x="936" y="452" width="32" height="28" rx="6" fill="rgba(255,255,255,0.06)"/>
+    <rect x="972" y="452" width="32" height="28" rx="6" fill="rgba(255,255,255,0.06)"/>
+    <rect x="1008" y="452" width="32" height="28" rx="6" fill="rgba(255,255,255,0.06)"/>
+    <rect x="1044" y="452" width="32" height="28" rx="6" fill="rgba(255,255,255,0.06)"/>
+  </g>
+
+  <!-- Row 5 -->
+  <g>
+    <rect x="60" y="498" width="1160" height="52" rx="4" fill="rgba(255,255,255,0.02)"/>
+    <text x="80" y="520" font-family="Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#f4efe6">Il migliore editor di codice 2026 — VS Code vs Cursor vs Zed</text>
+    <text x="80" y="538" font-family="Segoe UI, sans-serif" font-size="11" fill="rgba(244,239,230,0.5)">https://example.com/migliori-editor-2026</text>
+    <rect x="584" y="504" width="44" height="22" rx="4" fill="rgba(110,160,255,0.18)"/>
+    <text x="594" y="519" font-family="Segoe UI, sans-serif" font-size="10" fill="#b3d0ff">guide</text>
+    <rect x="634" y="504" width="58" height="22" rx="4" fill="rgba(110,160,255,0.18)"/>
+    <text x="644" y="519" font-family="Segoe UI, sans-serif" font-size="10" fill="#b3d0ff">strumenti</text>
+    <text x="720" y="530" font-family="Segoe UI, sans-serif" font-size="12" fill="rgba(244,239,230,0.6)">1 giu 2026</text>
+    <rect x="830" y="518" width="48" height="20" rx="10" fill="rgba(242,187,105,0.18)"/>
+    <text x="840" y="532" font-family="Segoe UI, sans-serif" font-size="10" font-weight="700" fill="#ffd68b">Favorito</text>
+    <rect x="900" y="508" width="32" height="28" rx="6" fill="rgba(255,255,255,0.06)"/>
+    <rect x="936" y="508" width="32" height="28" rx="6" fill="rgba(255,255,255,0.06)"/>
+    <rect x="972" y="508" width="32" height="28" rx="6" fill="rgba(255,255,255,0.06)"/>
+    <rect x="1008" y="508" width="32" height="28" rx="6" fill="rgba(255,255,255,0.06)"/>
+    <rect x="1044" y="508" width="32" height="28" rx="6" fill="rgba(255,255,255,0.06)"/>
+  </g>
+
+  <!-- Sync status -->
+  <text x="60" y="604" font-family="Segoe UI, sans-serif" font-size="12" fill="#f2bb69">⏺ Sincronizzato 3 minuti fa · 24 link · 0 modifiche in coda</text>
+
+  <!-- Pagination -->
+  <g>
+    <text x="600" y="618" font-family="Segoe UI, sans-serif" font-size="12" fill="rgba(244,239,230,0.5)">Pagina 1 di 3</text>
+    <rect x="690" y="600" width="60" height="30" rx="6" fill="rgba(255,255,255,0.06)"/>
+    <text x="706" y="620" font-family="Segoe UI, sans-serif" font-size="12" fill="rgba(244,239,230,0.5)">Prima</text>
+    <rect x="756" y="600" width="50" height="30" rx="6" fill="rgba(255,255,255,0.12)"/>
+    <text x="770" y="620" font-family="Segoe UI, sans-serif" font-size="12" fill="#f4efe6">Prec</text>
+    <rect x="812" y="600" width="50" height="30" rx="6" fill="rgba(255,255,255,0.06)"/>
+    <text x="826" y="620" font-family="Segoe UI, sans-serif" font-size="12" fill="rgba(244,239,230,0.5)">Succ</text>
+    <rect x="868" y="600" width="60" height="30" rx="6" fill="rgba(255,255,255,0.06)"/>
+    <text x="884" y="620" font-family="Segoe UI, sans-serif" font-size="12" fill="rgba(244,239,230,0.5)">Ultima</text>
+  </g>
+
+  <!-- Modal overlay hint -->
+  <rect x="780" y="180" width="320" height="380" rx="14" fill="rgba(11,19,36,0.95)" stroke="rgba(255,255,255,0.1)" stroke-width="1" filter="url(#shadow)"/>
+  <!-- Modal header -->
+  <rect x="780" y="180" width="320" height="52" rx="14" fill="rgba(255,255,255,0.04)"/>
+  <text x="800" y="212" font-family="Segoe UI, sans-serif" font-size="15" font-weight="600" fill="#f4efe6">✏️ Modifica Link</text>
+  <!-- Modal form -->
+  <text x="800" y="258" font-family="Segoe UI, sans-serif" font-size="12" font-weight="600" fill="rgba(244,239,230,0.7)">URL</text>
+  <rect x="800" y="268" width="280" height="36" rx="6" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+  <text x="812" y="290" font-family="Segoe UI, sans-serif" font-size="12" fill="rgba(244,239,230,0.42)">https://example.com/react-guida-2026</text>
+  <text x="800" y="324" font-family="Segoe UI, sans-serif" font-size="12" font-weight="600" fill="rgba(244,239,230,0.7)">Titolo</text>
+  <rect x="800" y="334" width="280" height="36" rx="6" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+  <text x="812" y="356" font-family="Segoe UI, sans-serif" font-size="12" fill="rgba(244,239,230,0.6)">Guida React 2026</text>
+  <text x="800" y="390" font-family="Segoe UI, sans-serif" font-size="12" font-weight="600" fill="rgba(244,239,230,0.7)">Tag</text>
+  <rect x="800" y="400" width="280" height="36" rx="6" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+  <!-- Tag chips in input -->
+  <rect x="808" y="408" width="44" height="20" rx="4" fill="rgba(110,160,255,0.18)"/>
+  <text x="818" y="422" font-family="Segoe UI, sans-serif" font-size="10" fill="#b3d0ff">guide</text>
+  <rect x="858" y="408" width="58" height="20" rx="4" fill="rgba(110,160,255,0.18)"/>
+  <text x="868" y="422" font-family="Segoe UI, sans-serif" font-size="10" fill="#b3d0ff">web-dev</text>
+  <!-- Checkboxes -->
+  <rect x="800" y="452" width="80" height="28" rx="14" fill="rgba(84,214,154,0.18)" stroke="rgba(84,214,154,0.35)" stroke-width="1"/>
+  <text x="816" y="472" font-family="Segoe UI, sans-serif" font-size="12" fill="#b9f6da">Già visto</text>
+  <rect x="888" y="452" width="90" height="28" rx="14" fill="rgba(242,187,105,0.18)"/>
+  <text x="904" y="472" font-family="Segoe UI, sans-serif" font-size="12" fill="#ffd68b">Favorito</text>
+  <!-- Buttons -->
+  <rect x="800" y="500" width="120" height="36" rx="8" fill="url(#accent)"/>
+  <text x="820" y="523" font-family="Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#24170b">Salva modifiche</text>
+  <rect x="930" y="500" width="100" height="36" rx="8" fill="rgba(255,255,255,0.08)"/>
+  <text x="950" y="523" font-family="Segoe UI, sans-serif" font-size="13" fill="#f4efe6">Annulla</text>
+
+</svg>

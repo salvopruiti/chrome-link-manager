@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 280">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#18243f"/>
+      <stop offset="100%" style="stop-color:#0b1324"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#d9771f"/>
+      <stop offset="100%" style="stop-color:#f2bb69"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="440" height="280" fill="url(#bg)"/>
+
+  <!-- Bolt icon circle -->
+  <circle cx="80" cy="100" r="50" fill="url(#accent)"/>
+  <text x="80" y="112" font-family="Segoe UI, sans-serif" font-size="48" text-anchor="middle" fill="#fff" font-weight="700">⚡</text>
+
+  <!-- Title -->
+  <text x="148" y="84" font-family="Segoe UI, sans-serif" font-size="24" font-weight="700" fill="#f4efe6">Link Manager</text>
+  <text x="148" y="112" font-family="Segoe UI, sans-serif" font-size="14" fill="rgba(244,239,230,0.7)">Save, organize, navigate.</text>
+
+  <!-- Feature bullets -->
+  <circle cx="56" cy="160" r="4" fill="#f2bb69"/>
+  <text x="70" y="165" font-family="Segoe UI, sans-serif" font-size="13" fill="#f4efe6">Shift+Click to save links on the fly</text>
+  <circle cx="56" cy="186" r="4" fill="#f2bb69"/>
+  <text x="70" y="191" font-family="Segoe UI, sans-serif" font-size="13" fill="#f4efe6">Floating bar to browse your links</text>
+  <circle cx="56" cy="212" r="4" fill="#f2bb69"/>
+  <text x="70" y="217" font-family="Segoe UI, sans-serif" font-size="13" fill="#f4efe6">Custom tags to organize everything</text>
+  <circle cx="56" cy="238" r="4" fill="#f2bb69"/>
+  <text x="70" y="243" font-family="Segoe UI, sans-serif" font-size="13" fill="#f4efe6">Multi-device synchronization</text>
+
+  <!-- Footer gradient bar -->
+  <rect x="0" y="268" width="440" height="12" fill="url(#accent)"/>
+</svg>
