@@ -667,25 +667,12 @@ function attachUiHandlers(root) {
       try {
         switch (action) {
           case "prev-current":
-            if (id) {
-              const targetEntry = extensionState.entries.find(
-                (entry) => entry.id === id,
-              );
-              if (targetEntry) {
-                window.location.href = targetEntry.url;
-                return;
-              }
-            }
-            break;
           case "next-current":
             if (id) {
-              const targetEntry = extensionState.entries.find(
-                (entry) => entry.id === id,
-              );
-              if (targetEntry) {
-                window.location.href = targetEntry.url;
-                return;
-              }
+              await sendMessage({
+                type: "open-link",
+                payload: { id, active: true, openInCurrentTab: true },
+              });
             }
             break;
           case "save-current": {
