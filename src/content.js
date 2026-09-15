@@ -339,6 +339,11 @@ function syncCurrentPageStateFromEntries() {
     currentPageState.savedEntry = savedEntry;
     currentPageState.isFavorite = Boolean(savedEntry.isFavorite);
     currentPageState.isSeen = Boolean(savedEntry.isSeen);
+    if (!currentPageState.navigationSnapshot) {
+      currentPageState.navigationSnapshot = createNavigationSnapshot(
+        savedEntry.id,
+      );
+    }
   }
 }
 
