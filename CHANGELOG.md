@@ -1,3 +1,15 @@
+# [1.7.0](https://github.com/salvopruiti/chrome-link-manager/compare/v1.6.2...v1.7.0) (2026-09-15)
+
+
+### Bug Fixes
+
+* include icons folder in the packaged extension ([4fab6ee](https://github.com/salvopruiti/chrome-link-manager/commit/4fab6ee3e87d78c07e2acc0b7c9afba5ee003ea0))
+
+
+### Features
+
+* add keyboard shortcut to open a random link ([1614f32](https://github.com/salvopruiti/chrome-link-manager/commit/1614f3211584c8622945f5c68993ca222c9d003b))
+
 ## [1.6.2](https://github.com/salvopruiti/chrome-link-manager/compare/v1.6.1...v1.6.2) (2026-09-15)
 
 
