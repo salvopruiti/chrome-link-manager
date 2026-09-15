@@ -1,3 +1,11 @@
+## [1.6.2](https://github.com/salvopruiti/chrome-link-manager/compare/v1.6.1...v1.6.2) (2026-09-15)
+
+
+### Bug Fixes
+
+* enable previous and next navigation after a redirected link update ([269db50](https://github.com/salvopruiti/chrome-link-manager/commit/269db50a8097b78f295812b1a3d323c2a4b1a470))
+* track redirects when navigating with previous and next links ([7f41c1b](https://github.com/salvopruiti/chrome-link-manager/commit/7f41c1be0d7f86e6d51888e8968d6f59c4d49a1e))
+
 ## [1.6.1](https://github.com/salvopruiti/chrome-link-manager/compare/v1.6.0...v1.6.1) (2026-06-10)
 
 
