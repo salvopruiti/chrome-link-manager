@@ -27,6 +27,10 @@ function t(key, substitutions) {
   return chrome.i18n.getMessage(key, substitutions) || key;
 }
 
+const SHORTCUT_LABEL = navigator.platform.startsWith('Mac')
+  ? ' (Cmd+Shift+9)'
+  : ' (Ctrl+Shift+9)';
+
 bootstrap();
 
 chrome.runtime.onMessage.addListener((message) => {
@@ -590,7 +594,7 @@ function renderBar() {
         ${compactCurrentPageActionsMarkup}
         <button class="lm-icon-button" type="button" data-action="prev-current" data-id="${escapeHtml(previousEntry?.id || "")}" title="${chrome.i18n.getMessage("previous_link")}" aria-label="${chrome.i18n.getMessage("previous_link")}" ${getDisabledAttrs(busy || !previousEntry)}>${isPending("prev-current") ? spinnerMarkup() : iconMarkup("chevron-left")}</button>
         <button class="lm-icon-button" type="button" data-action="next-current" data-id="${escapeHtml(nextEntry?.id || "")}" title="${chrome.i18n.getMessage("next_link")}" aria-label="${chrome.i18n.getMessage("next_link")}" ${getDisabledAttrs(busy || !nextEntry)}>${isPending("next-current") ? spinnerMarkup() : iconMarkup("chevron-right")}</button>
-        <button class="lm-icon-button" type="button" data-action="random" title="${chrome.i18n.getMessage("open_random_link")}" aria-label="${chrome.i18n.getMessage("open_random_link")}" ${getDisabledAttrs(busy || !navigableEntries.length)}>${isPending("random") ? spinnerMarkup() : iconMarkup("shuffle")}</button>
+        <button class="lm-icon-button" type="button" data-action="random" title="${chrome.i18n.getMessage("open_random_link") + SHORTCUT_LABEL}" aria-label="${chrome.i18n.getMessage("open_random_link")}" ${getDisabledAttrs(busy || !navigableEntries.length)}>${isPending("random") ? spinnerMarkup() : iconMarkup("shuffle")}</button>
       </div>
       `
           : ""
@@ -601,7 +605,7 @@ function renderBar() {
           <div class="lm-toolbar-actions">
             <button class="lm-icon-button ${extensionState.settings.captureAllClicks ? "is-active" : ""}" type="button" data-action="toggle-capture-all" title="${captureToggleLabel}" aria-label="${captureToggleLabel}" ${getDisabledAttrs(busy)}>${isPending("toggle-capture-all") ? spinnerMarkup() : iconMarkup("capture")}</button>
             <button class="lm-icon-button" type="button" data-action="save-open-tabs" title="${chrome.i18n.getMessage("save_all_tabs")}" aria-label="${chrome.i18n.getMessage("save_all_tabs")}" ${getDisabledAttrs(busy)}>${isPending("save-open-tabs") ? spinnerMarkup() : iconMarkup("tabs")}</button>
-            <button class="lm-icon-button" type="button" data-action="random" title="${chrome.i18n.getMessage("open_random_link")}" aria-label="${chrome.i18n.getMessage("open_random_link")}" ${getDisabledAttrs(busy)}>${isPending("random") ? spinnerMarkup() : iconMarkup("shuffle")}</button>
+            <button class="lm-icon-button" type="button" data-action="random" title="${chrome.i18n.getMessage("open_random_link") + SHORTCUT_LABEL}" aria-label="${chrome.i18n.getMessage("open_random_link")}" ${getDisabledAttrs(busy)}>${isPending("random") ? spinnerMarkup() : iconMarkup("shuffle")}</button>
             <button class="lm-icon-button" type="button" data-action="refresh" title="${chrome.i18n.getMessage("refresh")}" aria-label="${chrome.i18n.getMessage("refresh")}" ${getDisabledAttrs(busy)}>${isPending("refresh") ? spinnerMarkup() : iconMarkup("refresh")}</button>
           </div>
         </header>

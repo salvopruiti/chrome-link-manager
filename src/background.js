@@ -120,6 +120,19 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   pendingRedirectEntryByTabId.delete(tabId);
 });
 
+chrome.commands.onCommand.addListener((command) => {
+  if (command !== 'open-random-link') {
+    return;
+  }
+
+  chrome.tabs.query({ active: true, currentWindow: true }).then(([activeTab]) => {
+    const sender = activeTab
+      ? { tab: { id: activeTab.id, windowId: activeTab.windowId } }
+      : {};
+    return openRandomLink(sender).catch(() => undefined);
+  }).catch(() => undefined);
+});
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   handleMessage(message, sender)
     .then((result) => sendResponse({ ok: true, result }))

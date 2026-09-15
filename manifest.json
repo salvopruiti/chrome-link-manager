@@ -47,6 +47,15 @@
       ]
     }
   ],
+  "commands": {
+    "open-random-link": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+9",
+        "mac": "Command+Shift+9"
+      },
+      "description": "__MSG_open_random_link__"
+    }
+  },
   "action": {
     "default_icon": {
       "16": "icons/icon16.png",
