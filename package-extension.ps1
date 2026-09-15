@@ -30,6 +30,7 @@ $itemsToPack = @(
     (Join-Path $projectRoot 'manifest.json')
     (Join-Path $projectRoot 'README.md')
     (Join-Path $projectRoot 'src')
+    (Join-Path $projectRoot 'icons')
 )
 
 $missingItems = $itemsToPack | Where-Object { -not (Test-Path $_) }
