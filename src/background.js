@@ -13,6 +13,7 @@ import {
 
 const STORAGE_KEYS = {
   entries: "entries",
+  entriesMeta: "entriesMeta",
   settings: "settings",
   bookmarkFolderId: "bookmarkFolderId",
   authSession: "authSession",
@@ -29,6 +30,21 @@ const SYNC_PERIODIC_FLUSH_MINUTES = 2;
 const SYNC_FLUSH_ALARM = "pending-sync-flush";
 const SYNC_PERIODIC_ALARM = "periodic-sync-flush";
 const REDIRECT_TRACK_WINDOW_MS = 30000;
+const ENTRY_SHARD_SIZE = 500;
+const ENTRY_SHARD_VERSION = 1;
+const STORED_ENTRY_FIELDS = [
+  "url",
+  "normalizedUrl",
+  "title",
+  "pageUrl",
+  "createdAt",
+  "updatedAt",
+  "isSeen",
+  "seenAt",
+  "isFavorite",
+  "favoritedAt",
+  "revisionId",
+];
 
 const CONTEXT_MENU_ID = "save-link-from-context-menu";
 let pendingSyncFlushPromise = null;
@@ -36,6 +52,8 @@ let isPendingSyncFlushRunning = false;
 let pendingSyncMutex = Promise.resolve();
 let settingsStorageInitialized = false;
 let entriesCache = null;
+let entriesMetaCache = null;
+let legacyEntriesStored = false;
 const pendingRedirectEntryByTabId = new Map();
 
 const DEFAULT_SETTINGS = {
@@ -419,15 +437,142 @@ async function getEntries() {
     return entriesCache;
   }
 
-  const data = await chrome.storage.local.get(STORAGE_KEYS.entries);
-  entriesCache = normalizeEntries(data[STORAGE_KEYS.entries] || []);
+  entriesCache = await loadEntries();
   return entriesCache;
 }
 
+async function loadEntries() {
+  const data = await chrome.storage.local.get(null);
+  const meta = data[STORAGE_KEYS.entriesMeta];
+
+  legacyEntriesStored = Object.hasOwn(data, STORAGE_KEYS.entries);
+
+  if (isValidEntriesMeta(meta)) {
+    entriesMetaCache = meta;
+    const shards = [];
+
+    for (let index = 0; index < meta.shardCount; index += 1) {
+      const shard = data[entryShardKey(index)];
+
+      if (Array.isArray(shard)) {
+        shards.push(...shard);
+      }
+    }
+
+    return normalizeEntries(shards).sort(compareEntriesByCreatedAtDesc);
+  }
+
+  entriesMetaCache = null;
+  return normalizeEntries(data[STORAGE_KEYS.entries] || []);
+}
+
 async function setEntries(entries) {
+  const previousEntries = entriesCache || [];
   entriesCache = entries;
-  await chrome.storage.local.set({ [STORAGE_KEYS.entries]: entries });
+
+  try {
+    await persistEntries(previousEntries, entries);
+  } catch (error) {
+    entriesCache = null;
+    entriesMetaCache = null;
+    throw error;
+  }
+
   void broadcastState(entries);
+}
+
+async function persistEntries(previousEntries, nextEntries) {
+  const shardCount = getShardCount(nextEntries.length);
+  const buckets = Array.from({ length: shardCount }, () => []);
+  const nextIds = new Set();
+
+  for (const entry of nextEntries) {
+    buckets[getEntryShardIndex(entry.id, shardCount)].push(entry);
+    nextIds.add(entry.id);
+  }
+
+  const dirtyShards = new Set();
+
+  if (!entriesMetaCache || entriesMetaCache.shardCount !== shardCount) {
+    for (let index = 0; index < shardCount; index += 1) {
+      dirtyShards.add(index);
+    }
+  } else {
+    const previousById = new Map(
+      previousEntries.map((entry) => [entry.id, entry]),
+    );
+
+    for (const entry of nextEntries) {
+      const previousEntry = previousById.get(entry.id);
+
+      if (!previousEntry || !isSameStoredEntry(previousEntry, entry)) {
+        dirtyShards.add(getEntryShardIndex(entry.id, shardCount));
+      }
+    }
+
+    for (const entry of previousEntries) {
+      if (!nextIds.has(entry.id)) {
+        dirtyShards.add(getEntryShardIndex(entry.id, shardCount));
+      }
+    }
+  }
+
+  const payload = {};
+
+  for (const index of dirtyShards) {
+    payload[entryShardKey(index)] = buckets[index];
+  }
+
+  payload[STORAGE_KEYS.entriesMeta] = {
+    version: ENTRY_SHARD_VERSION,
+    shardCount,
+    shardSize: ENTRY_SHARD_SIZE,
+  };
+
+  await chrome.storage.local.set(payload);
+
+  if (legacyEntriesStored) {
+    legacyEntriesStored = false;
+    await chrome.storage.local.remove(STORAGE_KEYS.entries);
+  }
+
+  entriesMetaCache = payload[STORAGE_KEYS.entriesMeta];
+}
+
+function isValidEntriesMeta(meta) {
+  return Boolean(
+    meta &&
+      meta.version === ENTRY_SHARD_VERSION &&
+      Number.isInteger(meta.shardCount) &&
+      meta.shardCount > 0,
+  );
+}
+
+function getShardCount(entryCount) {
+  return Math.max(1, Math.ceil(entryCount / ENTRY_SHARD_SIZE));
+}
+
+function entryShardKey(index) {
+  return `${STORAGE_KEYS.entries}:${index}`;
+}
+
+function getEntryShardIndex(id, shardCount) {
+  return hashEntryId(id) % shardCount;
+}
+
+function hashEntryId(id) {
+  const value = String(id);
+  let hash = 0;
+
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 31 + value.charCodeAt(index)) >>> 0;
+  }
+
+  return hash;
+}
+
+function isSameStoredEntry(left, right) {
+  return STORED_ENTRY_FIELDS.every((field) => left[field] === right[field]);
 }
 
 async function getSettings() {
