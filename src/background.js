@@ -31,6 +31,7 @@ const SYNC_FLUSH_ALARM = "pending-sync-flush";
 const SYNC_PERIODIC_ALARM = "periodic-sync-flush";
 const REDIRECT_TRACK_WINDOW_MS = 30000;
 const ENTRY_SHARD_SIZE = 500;
+const ENTRY_SHARD_WRITE_BATCH = 2;
 const ENTRY_SHARD_VERSION = 1;
 const STORED_ENTRY_FIELDS = [
   "url",
@@ -54,6 +55,7 @@ let settingsStorageInitialized = false;
 let entriesCache = null;
 let entriesMetaCache = null;
 let legacyEntriesStored = false;
+let storedShardCount = 0;
 const pendingRedirectEntryByTabId = new Map();
 
 const DEFAULT_SETTINGS = {
@@ -500,26 +502,51 @@ async function getEntries() {
 async function loadEntries() {
   const data = await chrome.storage.local.get(null);
   const meta = data[STORAGE_KEYS.entriesMeta];
+  const shards = readEntryShards(data);
 
   legacyEntriesStored = Object.hasOwn(data, STORAGE_KEYS.entries);
+  storedShardCount = countEntryShards(data);
 
   if (isValidEntriesMeta(meta)) {
     entriesMetaCache = meta;
-    const shards = [];
-
-    for (let index = 0; index < meta.shardCount; index += 1) {
-      const shard = data[entryShardKey(index)];
-
-      if (Array.isArray(shard)) {
-        shards.push(...shard);
-      }
-    }
-
     return normalizeEntries(shards).sort(compareEntriesByCreatedAtDesc);
   }
 
   entriesMetaCache = null;
-  return normalizeEntries(data[STORAGE_KEYS.entries] || []);
+
+  if (!shards.length) {
+    return normalizeEntries(data[STORAGE_KEYS.entries] || []);
+  }
+
+  const merged = new Map();
+
+  for (const entry of [...shards, ...(data[STORAGE_KEYS.entries] || [])]) {
+    if (!merged.has(entry.id)) {
+      merged.set(entry.id, entry);
+    }
+  }
+
+  return normalizeEntries([...merged.values()]).sort(
+    compareEntriesByCreatedAtDesc,
+  );
+}
+
+function readEntryShards(data) {
+  const entries = [];
+
+  for (const [key, value] of Object.entries(data)) {
+    if (key.startsWith(`${STORAGE_KEYS.entries}:`) && Array.isArray(value)) {
+      entries.push(...value);
+    }
+  }
+
+  return entries;
+}
+
+function countEntryShards(data) {
+  return Object.keys(data).filter((key) =>
+    key.startsWith(`${STORAGE_KEYS.entries}:`),
+  ).length;
 }
 
 async function setEntries(entries) {
@@ -538,15 +565,17 @@ async function setEntries(entries) {
 }
 
 async function persistEntries(previousEntries, nextEntries) {
-  const shardCount = getShardCount(nextEntries.length);
-  const buckets = Array.from({ length: shardCount }, () => []);
-  const nextIds = new Set();
-
-  for (const entry of nextEntries) {
-    buckets[getEntryShardIndex(entry.id, shardCount)].push(entry);
-    nextIds.add(entry.id);
+  if (legacyEntriesStored) {
+    await migrateLegacyEntries(previousEntries);
   }
 
+  const previousShardCount = Math.max(
+    storedShardCount,
+    entriesMetaCache?.shardCount || 0,
+  );
+  const shardCount = getShardCount(nextEntries.length);
+  const buckets = buildEntryBuckets(nextEntries, shardCount);
+  const nextIds = new Set(nextEntries.map((entry) => entry.id));
   const dirtyShards = new Set();
 
   if (!entriesMetaCache || entriesMetaCache.shardCount !== shardCount) {
@@ -573,26 +602,109 @@ async function persistEntries(previousEntries, nextEntries) {
     }
   }
 
-  const payload = {};
+  await writeEntryShards([...dirtyShards].sort((a, b) => a - b), buckets);
 
-  for (const index of dirtyShards) {
-    payload[entryShardKey(index)] = buckets[index];
-  }
-
-  payload[STORAGE_KEYS.entriesMeta] = {
+  entriesMetaCache = {
     version: ENTRY_SHARD_VERSION,
     shardCount,
     shardSize: ENTRY_SHARD_SIZE,
   };
 
-  await chrome.storage.local.set(payload);
+  await chrome.storage.local.set({
+    [STORAGE_KEYS.entriesMeta]: entriesMetaCache,
+  });
+
+  await removeStaleShards(shardCount, previousShardCount);
+  storedShardCount = shardCount;
 
   if (legacyEntriesStored) {
     legacyEntriesStored = false;
     await chrome.storage.local.remove(STORAGE_KEYS.entries);
   }
+}
 
-  entriesMetaCache = payload[STORAGE_KEYS.entriesMeta];
+async function migrateLegacyEntries(entries) {
+  const shardCount = getShardCount(entries.length);
+  const buckets = buildEntryBuckets(entries, shardCount);
+  const migratedIds = new Set();
+
+  for (
+    let index = 0;
+    index < shardCount;
+    index += ENTRY_SHARD_WRITE_BATCH
+  ) {
+    const batch = [];
+
+    for (
+      let shardIndex = index;
+      shardIndex < Math.min(index + ENTRY_SHARD_WRITE_BATCH, shardCount);
+      shardIndex += 1
+    ) {
+      batch.push(shardIndex);
+      for (const entry of buckets[shardIndex]) {
+        migratedIds.add(entry.id);
+      }
+    }
+
+    await writeEntryShards(batch, buckets);
+    await chrome.storage.local.set({
+      [STORAGE_KEYS.entries]: entries.filter(
+        (entry) => !migratedIds.has(entry.id),
+      ),
+    });
+  }
+
+  entriesMetaCache = {
+    version: ENTRY_SHARD_VERSION,
+    shardCount,
+    shardSize: ENTRY_SHARD_SIZE,
+  };
+
+  await chrome.storage.local.set({
+    [STORAGE_KEYS.entriesMeta]: entriesMetaCache,
+  });
+  await chrome.storage.local.remove(STORAGE_KEYS.entries);
+
+  legacyEntriesStored = false;
+}
+
+function buildEntryBuckets(entries, shardCount) {
+  const buckets = Array.from({ length: shardCount }, () => []);
+
+  for (const entry of entries) {
+    buckets[getEntryShardIndex(entry.id, shardCount)].push(entry);
+  }
+
+  return buckets;
+}
+
+async function writeEntryShards(indices, buckets) {
+  for (let offset = 0; offset < indices.length; offset += ENTRY_SHARD_WRITE_BATCH) {
+    const payload = {};
+
+    for (const index of indices.slice(
+      offset,
+      offset + ENTRY_SHARD_WRITE_BATCH,
+    )) {
+      payload[entryShardKey(index)] = buckets[index];
+    }
+
+    await chrome.storage.local.set(payload);
+  }
+}
+
+async function removeStaleShards(shardCount, previousShardCount) {
+  if (previousShardCount <= shardCount) {
+    return;
+  }
+
+  const staleKeys = [];
+
+  for (let index = shardCount; index < previousShardCount; index += 1) {
+    staleKeys.push(entryShardKey(index));
+  }
+
+  await chrome.storage.local.remove(staleKeys);
 }
 
 function isValidEntriesMeta(meta) {
