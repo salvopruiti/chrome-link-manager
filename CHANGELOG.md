@@ -1,3 +1,17 @@
+## [1.7.1](https://github.com/salvopruiti/chrome-link-manager/compare/v1.7.0...v1.7.1) (2026-11-19)
+
+
+### Bug Fixes
+
+* **storage:** migrate legacy entries in batches to stay under the storage quota ([311f86f](https://github.com/salvopruiti/chrome-link-manager/commit/311f86f6653b639ac027ad3c97e5495d65095d4d))
+
+
+### Performance Improvements
+
+* **archive:** page entries in the service worker instead of sending the whole archive ([83ebc1f](https://github.com/salvopruiti/chrome-link-manager/commit/83ebc1ffa106c4055dd567288646f9fc7bb8c132))
+* **archive:** reuse table rows and cut redundant state broadcasts ([71e39ae](https://github.com/salvopruiti/chrome-link-manager/commit/71e39ae43653b0fec0dd4ea75ed16bc4cfbae95e))
+* **storage:** shard entries storage so writes touch a single chunk ([888c996](https://github.com/salvopruiti/chrome-link-manager/commit/888c996ec4bcc1a59732595a0a34dfb7a760fe74))
+
 # [1.7.0](https://github.com/salvopruiti/chrome-link-manager/compare/v1.6.2...v1.7.0) (2026-09-15)
 
 
