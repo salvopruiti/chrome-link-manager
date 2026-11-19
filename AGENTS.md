@@ -44,9 +44,11 @@ Chrome MV3 extension that saves, manages, and navigates links. Users capture lin
 
 ## Key Architecture Decisions
 - **State flow:** All state lives in `background.js` (chrome.storage.local). Pages request state via `chrome.runtime.sendMessage({type:"get-state"})`. Mutations go through the service worker.
+- **Paged archive:** `links.js` never asks for the whole archive. It sends `{type:"query-entries", payload:{query, page, pageSize, unseenOnly, seenOnly, favoriteOnly}}` and gets back `{entries, total, page, totalPages, sync}` — filtering and slicing happen in the service worker.
+- **Entries storage:** entries are sharded in `entries:<n>` chunks of 500 (`hash(id) % shardCount`) plus an `entriesMeta` manifest. `setEntries` diffs against the in-memory cache and writes only the shards that changed, so a toggle costs one chunk instead of the whole archive. Legacy single-key `entries` is migrated on the first write.
 - **Message passing:** Every page uses `sendMessage()` → returns `{ok, result/error}` via callback. No `chrome.storage.onChanged` listeners on pages.
 - **Sync:** Supabase sync is manual (button) or periodic (alarm). Queue of upserts/deletes flushed in batch. Mutex protects queue from race conditions.
-- **broadcastState:** On state change, `chrome.tabs.query({active:true, lastFocusedWindow:true})` sends `state-updated` only to the active tab (not all tabs).
+- **broadcastState:** On state change, `chrome.tabs.query({active:true, lastFocusedWindow:true})` sends `state-updated` only to the active tab (not all tabs), and only to tabs that can host the content script (http/https/ftp/file). One broadcast per mutation.
 - **URL normalization:** Hostname + pathname lowercase, trailing slash stripped, sorted search params (minus configured ignore params). Done client-side in `content.js`.
 - **i18n:** All user-facing strings via `chrome.i18n.getMessage(key)`. Pages use `data-i18n` attributes replaced at runtime + `t()` helper.
 - **Visibility auto-refresh:** Both options.html and links.html listen to `visibilitychange` → re-fetch state.
