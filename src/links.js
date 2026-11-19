@@ -45,6 +45,7 @@ const archiveState = {
   editingId: null,
   currentPage: 1,
   totalPages: 1,
+  totalItems: 0,
   filters: {
     unseenOnly: false,
     seenOnly: false,
@@ -129,9 +130,29 @@ function writeQueryParams() {
 }
 
 async function refreshState() {
-  const state = await sendMessage({ type: "get-state" });
-  archiveState.entries = Array.isArray(state.entries) ? state.entries : [];
-  renderSyncHint(state.sync || {});
+  return loadArchive().catch((error) => {
+    setStatus(error.message || t("unable_load_links"), true);
+  });
+}
+
+async function loadArchive() {
+  const response = await sendMessage({
+    type: "query-entries",
+    payload: {
+      query: archiveState.searchQuery,
+      page: archiveState.currentPage,
+      pageSize: ITEMS_PER_PAGE,
+      unseenOnly: archiveState.filters.unseenOnly,
+      seenOnly: archiveState.filters.seenOnly,
+      favoriteOnly: archiveState.filters.favoriteOnly,
+    },
+  });
+
+  archiveState.entries = Array.isArray(response.entries) ? response.entries : [];
+  archiveState.currentPage = response.page;
+  archiveState.totalPages = response.totalPages;
+  archiveState.totalItems = response.total;
+  renderSyncHint(response.sync || {});
   renderArchiveList();
 }
 
@@ -145,42 +166,23 @@ function handleArchiveSearch(event) {
 
   searchRenderTimer = setTimeout(() => {
     searchRenderTimer = null;
-    renderArchiveList();
+    void refreshState();
   }, 120);
 }
 
-function getFilteredArchiveEntries() {
-  const normalizedQuery = archiveState.searchQuery.trim().toLowerCase();
-
-  return archiveState.entries.filter(
-    (entry) =>
-      matchesQuickFilters(entry) &&
-      (!normalizedQuery ||
-        [entry.title, entry.url, entry.pageUrl]
-          .filter(Boolean)
-          .some((value) => value.toLowerCase().includes(normalizedQuery))),
-  );
-}
-
 function renderArchiveList() {
-  const filteredEntries = getFilteredArchiveEntries();
-  const totalPages = Math.max(
-    1,
-    Math.ceil(filteredEntries.length / ITEMS_PER_PAGE),
-  );
-  archiveState.currentPage = Math.min(archiveState.currentPage, totalPages);
-  archiveState.totalPages = totalPages;
   const pageStart = (archiveState.currentPage - 1) * ITEMS_PER_PAGE;
-  const visibleEntries = filteredEntries.slice(
-    pageStart,
-    pageStart + ITEMS_PER_PAGE,
-  );
-  const pageEnd = pageStart + visibleEntries.length;
+  const pageEnd = pageStart + archiveState.entries.length;
 
   renderQuickFilters();
-  renderPagination(filteredEntries.length, pageStart, pageEnd, totalPages);
+  renderPagination(
+    archiveState.totalItems,
+    pageStart,
+    pageEnd,
+    archiveState.totalPages,
+  );
 
-  if (!visibleEntries.length) {
+  if (!archiveState.entries.length) {
     archiveRowNodes = [];
     archiveTableBodyNode = null;
     archiveListNode.innerHTML = `<div class="empty">${escapeHtml(
@@ -193,7 +195,7 @@ function renderArchiveList() {
   }
 
   ensureArchiveTable();
-  syncTableRows(visibleEntries);
+  syncTableRows(archiveState.entries);
   writeQueryParams();
 }
 
@@ -359,29 +361,7 @@ function isFilteringActive() {
 function applyEntryUpdate(entry) {
   replaceEntryInState(entry);
   syncEditingEntry(entry);
-
-  if (isFilteringActive()) {
-    renderArchiveList();
-    return;
-  }
-
   updateEntryRow(entry);
-}
-
-function matchesQuickFilters(entry) {
-  if (archiveState.filters.unseenOnly && entry.isSeen) {
-    return false;
-  }
-
-  if (archiveState.filters.seenOnly && !entry.isSeen) {
-    return false;
-  }
-
-  if (archiveState.filters.favoriteOnly && !entry.isFavorite) {
-    return false;
-  }
-
-  return true;
 }
 
 function toggleQuickFilter(filterKey) {
@@ -400,7 +380,7 @@ function toggleQuickFilter(filterKey) {
   }
 
   archiveState.currentPage = 1;
-  renderArchiveList();
+  void refreshState();
 }
 
 function renderQuickFilters() {
@@ -577,6 +557,9 @@ async function handleArchiveListClick(event) {
       if (result.sync) {
         renderSyncHint(result.sync);
       }
+      if (isFilteringActive()) {
+        await refreshState();
+      }
       setStatus(
         result.enabled
           ? t("link_marked_seen")
@@ -606,6 +589,9 @@ async function handleArchiveListClick(event) {
       if (result.sync) {
         renderSyncHint(result.sync);
       }
+      if (isFilteringActive()) {
+        await refreshState();
+      }
       setStatus(
         result.enabled
           ? t("link_added_favorites")
@@ -624,6 +610,7 @@ async function handleArchiveListClick(event) {
 
   try {
     removeEntryFromState(id);
+    archiveState.totalItems = Math.max(0, archiveState.totalItems - 1);
     renderArchiveList();
     await sendMessage({ type: "remove-link", payload: { id } });
     if (archiveState.editingId === id) {
@@ -631,6 +618,7 @@ async function handleArchiveListClick(event) {
       closeArchiveModal();
     }
     setStatus(t("link_deleted"));
+    await refreshState();
   } catch (error) {
     await refreshState();
     setStatus(error.message || t("error_deleting_link"), true);
@@ -679,17 +667,17 @@ function renderPagination(totalItems, pageStart, pageEnd, totalPages) {
 }
 
 function changePage(delta) {
-  const filteredEntries = getFilteredArchiveEntries();
-  const totalPages = Math.max(
-    1,
-    Math.ceil(filteredEntries.length / ITEMS_PER_PAGE),
-  );
-  archiveState.totalPages = totalPages;
-  archiveState.currentPage = Math.min(
-    totalPages,
+  const nextPage = Math.min(
+    archiveState.totalPages,
     Math.max(1, archiveState.currentPage + delta),
   );
-  renderArchiveList();
+
+  if (nextPage === archiveState.currentPage) {
+    return;
+  }
+
+  archiveState.currentPage = nextPage;
+  void refreshState();
 }
 
 function iconMarkup(name) {

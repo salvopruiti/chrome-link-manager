@@ -169,6 +169,8 @@ async function handleMessage(message, sender) {
   switch (message?.type) {
     case "get-state":
       return getState();
+    case "query-entries":
+      return queryEntries(message.payload);
     case "inspect-link":
       return inspectLink(message.payload?.url);
     case "list-bookmark-folders":
@@ -411,6 +413,60 @@ async function getState(loadedEntries) {
     getSyncStatus(),
   ]);
   return { entries, settings, auth, sync };
+}
+
+async function queryEntries(payload = {}) {
+  const entries = await getEntries();
+  const query = String(payload.query || "")
+    .trim()
+    .toLowerCase();
+  const pageSize = Math.min(500, Math.max(1, Number(payload.pageSize) || 100));
+  const filteredEntries = entries.filter((entry) =>
+    matchesEntryQuery(entry, payload, query),
+  );
+  const total = filteredEntries.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const page = Math.min(Math.max(1, Number(payload.page) || 1), totalPages);
+  const pageStart = (page - 1) * pageSize;
+
+  return {
+    entries:
+      pageStart < total
+        ? filteredEntries.slice(pageStart, pageStart + pageSize)
+        : [],
+    total,
+    page,
+    totalPages,
+    sync: await getSyncStatus(),
+  };
+}
+
+function matchesEntryQuery(entry, payload, query) {
+  if (payload.unseenOnly && entry.isSeen) {
+    return false;
+  }
+
+  if (payload.seenOnly && !entry.isSeen) {
+    return false;
+  }
+
+  if (payload.favoriteOnly && !entry.isFavorite) {
+    return false;
+  }
+
+  if (!query) {
+    return true;
+  }
+
+  return (
+    matchesSearchValue(entry.title, query) ||
+    matchesSearchValue(entry.url, query) ||
+    matchesSearchValue(entry.pageUrl, query)
+  );
+}
+
+function matchesSearchValue(value, query) {
+  return typeof value === "string" && value.toLowerCase().includes(query);
 }
 
 async function getSyncStatus() {
