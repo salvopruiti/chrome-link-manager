@@ -35,6 +35,7 @@ let pendingSyncFlushPromise = null;
 let isPendingSyncFlushRunning = false;
 let pendingSyncMutex = Promise.resolve();
 let settingsStorageInitialized = false;
+let entriesCache = null;
 const pendingRedirectEntryByTabId = new Map();
 
 const DEFAULT_SETTINGS = {
@@ -384,9 +385,9 @@ async function handlePageLoad(url, sender) {
   }
 }
 
-async function getState() {
+async function getState(loadedEntries) {
   const [entries, settings, auth, sync] = await Promise.all([
-    getEntries(),
+    loadedEntries || getEntries(),
     getSettings(),
     getAuthState(),
     getSyncStatus(),
@@ -414,15 +415,19 @@ async function getSyncStatus() {
 }
 
 async function getEntries() {
+  if (entriesCache) {
+    return entriesCache;
+  }
+
   const data = await chrome.storage.local.get(STORAGE_KEYS.entries);
-  return normalizeEntries(data[STORAGE_KEYS.entries] || []);
+  entriesCache = normalizeEntries(data[STORAGE_KEYS.entries] || []);
+  return entriesCache;
 }
 
 async function setEntries(entries) {
-  await chrome.storage.local.set({
-    [STORAGE_KEYS.entries]: normalizeEntries(entries),
-  });
-  void broadcastState();
+  entriesCache = entries;
+  await chrome.storage.local.set({ [STORAGE_KEYS.entries]: entries });
+  void broadcastState(entries);
 }
 
 async function getSettings() {
@@ -684,7 +689,6 @@ async function syncSupabase() {
     getLatestRevisionId(lastSyncRevision, appliedRemoteLinks),
   );
   await setSyncUserId(session.user.id);
-  void broadcastState();
 
   return {
     syncedCount: mergedEntries.length,
@@ -872,7 +876,6 @@ async function debugSyncFix() {
   await setLastSyncAt(new Date().toISOString());
   await setLastSyncRevision(getLatestRevisionId(previousRevision, remoteLinks));
   await setSyncUserId(session.user.id);
-  void broadcastState();
 
   const afterDiff = await debugSyncDiff();
   return {
@@ -909,7 +912,6 @@ async function ensureValidAuthSession() {
 async function syncCreatedEntries(entries) {
   await queueEntriesForUpsert(entries);
   await schedulePendingSyncFlush();
-  void broadcastState();
 }
 
 async function markRemoteLinkDeleted(entry) {
@@ -919,7 +921,6 @@ async function markRemoteLinkDeleted(entry) {
   }
 
   await schedulePendingSyncFlush();
-  void broadcastState();
 }
 
 async function flushPendingSync(session) {
@@ -1770,11 +1771,12 @@ async function toggleEntryFlag(id, flagKey, timestampKey) {
   };
 
   await setEntries(entries.map((item) => (item.id === id ? nextEntry : item)));
-  void syncCreatedEntries([nextEntry]).catch(() => undefined);
+  await syncCreatedEntries([nextEntry]);
 
   return {
     entry: nextEntry,
     enabled: nextFlagValue,
+    sync: await getSyncStatus(),
   };
 }
 
@@ -2025,22 +2027,39 @@ function sortSearchParams(searchParams) {
   return sorted;
 }
 
-async function broadcastState() {
-  const state = await getState();
-  const tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+async function broadcastState(loadedEntries) {
+  const tabs = await getStateReceivableTabs();
+  if (!tabs.length) {
+    return;
+  }
+
+  const state = await getState(loadedEntries);
 
   for (const tab of tabs) {
-    if (typeof tab.id === "number") {
-      try {
-        await chrome.tabs.sendMessage(tab.id, {
-          type: "state-updated",
-          payload: state,
-        });
-      } catch {
-        // Content script not available on this page.
-      }
+    try {
+      await chrome.tabs.sendMessage(tab.id, {
+        type: "state-updated",
+        payload: state,
+      });
+    } catch {
+      // Content script not available on this page.
     }
   }
+}
+
+async function getStateReceivableTabs() {
+  const tabs = await chrome.tabs.query({
+    active: true,
+    lastFocusedWindow: true,
+  });
+
+  return tabs.filter(
+    (tab) => typeof tab.id === "number" && hasContentScript(tab.url),
+  );
+}
+
+function hasContentScript(url) {
+  return typeof url === "string" && /^(https?|ftp|file):/i.test(url);
 }
 
 async function sendStateToTab(tabId) {

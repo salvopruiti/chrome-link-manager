@@ -34,6 +34,11 @@ const modalStatusNode = document.getElementById("modalStatus");
 
 const ITEMS_PER_PAGE = 100;
 
+let archiveRowNodes = [];
+let archiveTableBodyNode = null;
+let searchRenderTimer = null;
+let lastQueryString = null;
+
 const archiveState = {
   entries: [],
   searchQuery: "",
@@ -113,7 +118,14 @@ function writeQueryParams() {
   if (archiveState.filters.seenOnly) p.set("seen", "1");
   if (archiveState.filters.favoriteOnly) p.set("fav", "1");
   const qs = p.toString();
-  history.replaceState(null, "", qs ? "?" + qs : location.pathname);
+  const nextUrl = qs ? "?" + qs : location.pathname;
+
+  if (nextUrl === lastQueryString) {
+    return;
+  }
+
+  lastQueryString = nextUrl;
+  history.replaceState(null, "", nextUrl);
 }
 
 async function refreshState() {
@@ -126,7 +138,15 @@ async function refreshState() {
 function handleArchiveSearch(event) {
   archiveState.searchQuery = event.target.value || "";
   archiveState.currentPage = 1;
-  renderArchiveList();
+
+  if (searchRenderTimer) {
+    clearTimeout(searchRenderTimer);
+  }
+
+  searchRenderTimer = setTimeout(() => {
+    searchRenderTimer = null;
+    renderArchiveList();
+  }, 120);
 }
 
 function getFilteredArchiveEntries() {
@@ -161,11 +181,24 @@ function renderArchiveList() {
   renderPagination(filteredEntries.length, pageStart, pageEnd, totalPages);
 
   if (!visibleEntries.length) {
+    archiveRowNodes = [];
+    archiveTableBodyNode = null;
     archiveListNode.innerHTML = `<div class="empty">${escapeHtml(
       archiveState.searchQuery.trim()
         ? t("no_search_results")
         : t("no_links_saved_yet"),
     )}</div>`;
+    writeQueryParams();
+    return;
+  }
+
+  ensureArchiveTable();
+  syncTableRows(visibleEntries);
+  writeQueryParams();
+}
+
+function ensureArchiveTable() {
+  if (archiveTableBodyNode?.isConnected) {
     return;
   }
 
@@ -173,45 +206,166 @@ function renderArchiveList() {
     <table class="table">
       <thead>
         <tr>
-          <th>${t("title_label")}</th>       
-          <th>${t("date_label")}</th>   
+          <th>${t("title_label")}</th>
+          <th>${t("date_label")}</th>
           <th>${t("actions_label")}</th>
         </tr>
       </thead>
-      <tbody>
-        ${visibleEntries.map((entry) => renderTableRow(entry)).join("")}
-      </tbody>
+      <tbody></tbody>
     </table>`;
-  writeQueryParams();
+
+  archiveTableBodyNode = archiveListNode.querySelector("tbody");
+  archiveRowNodes = [];
 }
 
-function renderTableRow(entry) {
-  const badges = [];
-
-  if (entry.isSeen) {
-    badges.push(`<span class="badge seen">${t("seen_badge")}</span>`);
+function syncTableRows(entries) {
+  while (archiveRowNodes.length > entries.length) {
+    archiveRowNodes.pop().remove();
   }
 
-  if (entry.isFavorite) {
-    badges.push(`<span class="badge favorite">${t("favorite_badge")}</span>`);
+  if (archiveRowNodes.length < entries.length) {
+    const missing = entries.length - archiveRowNodes.length;
+    archiveTableBodyNode.insertAdjacentHTML(
+      "beforeend",
+      archiveRowMarkup().repeat(missing),
+    );
+    archiveRowNodes = [...archiveTableBodyNode.children];
   }
+
+  entries.forEach((entry, index) => {
+    updateTableRow(archiveRowNodes[index], entry);
+  });
+}
+
+function archiveRowMarkup() {
+  const openLabel = escapeHtml(t("open_in_new_tab"));
+  const editLabel = escapeHtml(t("edit_link_title"));
+  const deleteLabel = escapeHtml(t("remove"));
 
   return `
-    <tr data-id="${escapeHtml(entry.id)}">
-      <td><div class="cell-title" title="${escapeHtml(entry.title)}">${escapeHtml(entry.title)}</div>
-      <div class="cell-url" title="${escapeHtml(entry.url)}">${escapeHtml(entry.url)}</div>
-      ${badges.length ? `<div class="badge-row">${badges.join("")}</div>` : ""}</td>
-      <td><div class="cell-date">${formatDateTime(entry.createdAt)}</div></td>
+    <tr>
+      <td>
+        <div class="cell-title"></div>
+        <div class="cell-url"></div>
+        <div class="badge-row">
+          <span class="badge seen" hidden>${escapeHtml(t("seen_badge"))}</span>
+          <span class="badge favorite" hidden>${escapeHtml(t("favorite_badge"))}</span>
+        </div>
+      </td>
+      <td><div class="cell-date"></div></td>
       <td>
         <div class="row-actions">
-          <button type="button" class="secondary icon-button" data-action="open" data-id="${escapeHtml(entry.id)}" title="${t("open_in_new_tab")}" aria-label="${t("open_in_new_tab")}">${iconMarkup("chevron-right")}</button>
-          <button type="button" class="secondary icon-button" data-action="edit" data-id="${escapeHtml(entry.id)}" title="${t("edit_link_title")}" aria-label="${t("edit_link_title")}">${iconMarkup("edit")}</button>
-          <button type="button" class="secondary icon-button${getToggleStateClass("seen", entry.isSeen)}" data-action="toggle-seen" data-id="${escapeHtml(entry.id)}" title="${entry.isSeen ? t("unmark_seen") : t("mark_seen")}" aria-label="${entry.isSeen ? t("unmark_seen") : t("mark_seen")}">${iconMarkup(entry.isSeen ? "check-badge" : "check")}</button>
-          <button type="button" class="secondary icon-button${getToggleStateClass("favorite", entry.isFavorite)}" data-action="toggle-favorite" data-id="${escapeHtml(entry.id)}" title="${entry.isFavorite ? t("unmark_favorite") : t("mark_favorite")}" aria-label="${entry.isFavorite ? t("unmark_favorite") : t("mark_favorite")}">${iconMarkup(entry.isFavorite ? "star-filled" : "star")}</button>
-          <button type="button" class="warn icon-button" data-action="delete" data-id="${escapeHtml(entry.id)}" title="${t("remove")}" aria-label="${t("remove")}">${iconMarkup("trash")}</button>
+          <button type="button" class="secondary icon-button" data-action="open" data-icon="chevron-right" title="${openLabel}" aria-label="${openLabel}">${iconMarkup("chevron-right")}</button>
+          <button type="button" class="secondary icon-button" data-action="edit" data-icon="edit" title="${editLabel}" aria-label="${editLabel}">${iconMarkup("edit")}</button>
+          <button type="button" class="secondary icon-button" data-action="toggle-seen" data-icon="check">${iconMarkup("check")}</button>
+          <button type="button" class="secondary icon-button" data-action="toggle-favorite" data-icon="star">${iconMarkup("star")}</button>
+          <button type="button" class="warn icon-button" data-action="delete" data-icon="trash" title="${deleteLabel}" aria-label="${deleteLabel}">${iconMarkup("trash")}</button>
         </div>
       </td>
     </tr>`;
+}
+
+function updateTableRow(row, entry) {
+  const refs = getRowRefs(row);
+  const seenLabel = entry.isSeen ? t("unmark_seen") : t("mark_seen");
+  const favoriteLabel = entry.isFavorite
+    ? t("unmark_favorite")
+    : t("mark_favorite");
+
+  row.dataset.id = entry.id;
+
+  for (const button of refs.buttons) {
+    button.dataset.id = entry.id;
+  }
+
+  refs.title.textContent = entry.title || "";
+  refs.title.title = entry.title || "";
+  refs.url.textContent = entry.url || "";
+  refs.url.title = entry.url || "";
+  refs.date.textContent = formatDateTime(entry.createdAt);
+  refs.seenBadge.hidden = !entry.isSeen;
+  refs.favoriteBadge.hidden = !entry.isFavorite;
+
+  refs.seenButton.classList.toggle("is-active-seen", Boolean(entry.isSeen));
+  refs.seenButton.title = seenLabel;
+  refs.seenButton.setAttribute("aria-label", seenLabel);
+  setButtonIcon(refs.seenButton, entry.isSeen ? "check-badge" : "check");
+
+  refs.favoriteButton.classList.toggle(
+    "is-active-favorite",
+    Boolean(entry.isFavorite),
+  );
+  refs.favoriteButton.title = favoriteLabel;
+  refs.favoriteButton.setAttribute("aria-label", favoriteLabel);
+  setButtonIcon(
+    refs.favoriteButton,
+    entry.isFavorite ? "star-filled" : "star",
+  );
+}
+
+const rowRefCache = new WeakMap();
+
+function getRowRefs(row) {
+  const cached = rowRefCache.get(row);
+
+  if (cached) {
+    return cached;
+  }
+
+  const refs = {
+    title: row.querySelector(".cell-title"),
+    url: row.querySelector(".cell-url"),
+    date: row.querySelector(".cell-date"),
+    seenBadge: row.querySelector(".badge.seen"),
+    favoriteBadge: row.querySelector(".badge.favorite"),
+    seenButton: row.querySelector('[data-action="toggle-seen"]'),
+    favoriteButton: row.querySelector('[data-action="toggle-favorite"]'),
+    buttons: [...row.querySelectorAll("[data-action]")],
+  };
+
+  rowRefCache.set(row, refs);
+  return refs;
+}
+
+function setButtonIcon(button, iconName) {
+  if (button.dataset.icon === iconName) {
+    return;
+  }
+
+  button.dataset.icon = iconName;
+  button.innerHTML = iconMarkup(iconName);
+}
+
+function updateEntryRow(entry) {
+  const row = archiveRowNodes.find((node) => node.dataset.id === entry.id);
+
+  if (!row) {
+    renderArchiveList();
+    return;
+  }
+
+  updateTableRow(row, entry);
+}
+
+function isFilteringActive() {
+  return Boolean(
+    archiveState.filters.unseenOnly ||
+    archiveState.filters.seenOnly ||
+    archiveState.filters.favoriteOnly ||
+    archiveState.searchQuery.trim(),
+  );
+}
+
+function applyEntryUpdate(entry) {
+  replaceEntryInState(entry);
+  syncEditingEntry(entry);
+
+  if (isFilteringActive()) {
+    renderArchiveList();
+    return;
+  }
+
+  updateEntryRow(entry);
 }
 
 function matchesQuickFilters(entry) {
@@ -412,18 +566,17 @@ async function handleArchiveListClick(event) {
 
   if (action === "toggle-seen") {
     const optimisticEntry = createOptimisticEntry(entry, "isSeen", "seenAt");
-    replaceEntryInState(optimisticEntry);
-    syncEditingEntry(optimisticEntry);
-    renderArchiveList();
+    applyEntryUpdate(optimisticEntry);
 
     try {
       const result = await sendMessage({
         type: "toggle-seen",
         payload: { id },
       });
-      replaceEntryInState(result.entry);
-      syncEditingEntry(result.entry);
-      renderArchiveList();
+      applyEntryUpdate(result.entry);
+      if (result.sync) {
+        renderSyncHint(result.sync);
+      }
       setStatus(
         result.enabled
           ? t("link_marked_seen")
@@ -442,18 +595,17 @@ async function handleArchiveListClick(event) {
       "isFavorite",
       "favoritedAt",
     );
-    replaceEntryInState(optimisticEntry);
-    syncEditingEntry(optimisticEntry);
-    renderArchiveList();
+    applyEntryUpdate(optimisticEntry);
 
     try {
       const result = await sendMessage({
         type: "toggle-favorite",
         payload: { id },
       });
-      replaceEntryInState(result.entry);
-      syncEditingEntry(result.entry);
-      renderArchiveList();
+      applyEntryUpdate(result.entry);
+      if (result.sync) {
+        renderSyncHint(result.sync);
+      }
       setStatus(
         result.enabled
           ? t("link_added_favorites")
@@ -538,14 +690,6 @@ function changePage(delta) {
     Math.max(1, archiveState.currentPage + delta),
   );
   renderArchiveList();
-}
-
-function getToggleStateClass(kind, isActive) {
-  if (!isActive) {
-    return "";
-  }
-
-  return kind === "seen" ? " is-active-seen" : " is-active-favorite";
 }
 
 function iconMarkup(name) {
